@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { getSupabaseClient } from './supabaseClient';
 import './App.css';
 
-// Mapeo de áreas/puertas
-const AREAS_DB = {
-  1: { id: 1, nombre: 'norte', descripcion: 'Puerta Norte', ubicacion: 'Acceso Principal' },
-  2: { id: 2, nombre: 'sur',   descripcion: 'Puerta Sur',   ubicacion: 'Datacenter' },
-  3: { id: 3, nombre: 'este',  descripcion: 'Puerta Este',  ubicacion: 'Laboratorio' },
-  4: { id: 4, nombre: 'oeste', descripcion: 'Puerta Oeste', ubicacion: 'Almacén' }
-};
+// Mapeo inicial por defecto de áreas/puertas (fallback si la BD está vacía)
+const AREAS_DEFAULT = [
+  { id: 1, nombre: 'norte', descripcion: 'Puerta Norte', ubicacion: 'Acceso Principal' },
+  { id: 2, nombre: 'sur',   descripcion: 'Puerta Sur',   ubicacion: 'Datacenter' },
+  { id: 3, nombre: 'este',  descripcion: 'Puerta Este',  ubicacion: 'Laboratorio' },
+  { id: 4, nombre: 'oeste', descripcion: 'Puerta Oeste', ubicacion: 'Almacén' }
+];
 
 // Datos iniciales de la base de datos
 const DATOS_INICIALES_BD = {
@@ -51,11 +51,12 @@ const DATOS_INICIALES_BD = {
 export default function App() {
   // Navegación
   const [view, setView] = useState('login'); // 'login' | 'panel'
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'puertas' | 'historial' | 'usuarios' | 'config'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'puertas' | 'historial' | 'usuarios'
   const [isSignUpActive, setIsSignUpActive] = useState(false);
   const [isWireframe, setIsWireframe] = useState(false);
 
-  // Datos reales leídos de la BD
+  // Datos reales leídos directamente de la Base de Datos Supabase
+  const [areas, setAreas] = useState(AREAS_DEFAULT);
   const [historial, setHistorial] = useState(DATOS_INICIALES_BD.historial_acceso);
   const [usuarios, setUsuarios] = useState(DATOS_INICIALES_BD.usuario);
   const [tarjetas, setTarjetas] = useState(DATOS_INICIALES_BD.tarjeta);
@@ -70,7 +71,14 @@ export default function App() {
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
-  // Consulta directa a la base de datos Supabase
+  // Función de resolución de área dinámica
+  const getAreaObj = (areaId) => {
+    const found = areas.find((a) => a.id === areaId);
+    if (found) return found;
+    return { id: areaId, nombre: `area_${areaId}`, descripcion: `Puerta Área ${areaId}`, ubicacion: 'Zona Controlada' };
+  };
+
+  // Consulta directa a la base de datos Supabase (historial_acceso)
   const fetchHistorial = async (silent = false) => {
     if (!silent) setLoading(true);
     const t0 = performance.now();
@@ -91,7 +99,7 @@ export default function App() {
       const t1 = performance.now();
       setQueryLatency(Math.round(t1 - t0));
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         setHistorial(data);
       }
     } catch (err) {
@@ -101,18 +109,26 @@ export default function App() {
     }
   };
 
-  // Lectura de tablas de soporte (usuario, tarjeta, permiso)
+  // Lectura directa de todas las tablas auxiliares de la BD (area, usuario, tarjeta, permiso)
   const fetchTablasAuxiliares = async () => {
     const client = getSupabaseClient();
     if (!client) return;
 
     try {
-      const [resUsuarios, resTarjetas, resPermisos] = await Promise.all([
+      const [resAreas, resUsuarios, resTarjetas, resPermisos] = await Promise.all([
+        client.from('area').select('*'),
         client.from('usuario').select('*'),
         client.from('tarjeta').select('*'),
         client.from('permiso').select('*')
       ]);
 
+      if (resAreas.data && resAreas.data.length > 0) {
+        const areasMapeadas = resAreas.data.map((a) => ({
+          ...a,
+          ubicacion: a.ubicacion || (a.id === 1 ? 'Acceso Principal' : a.id === 2 ? 'Datacenter' : a.id === 3 ? 'Laboratorio' : 'Almacén')
+        }));
+        setAreas(areasMapeadas);
+      }
       if (resUsuarios.data && resUsuarios.data.length > 0) setUsuarios(resUsuarios.data);
       if (resTarjetas.data && resTarjetas.data.length > 0) setTarjetas(resTarjetas.data);
       if (resPermisos.data && resPermisos.data.length > 0) setPermisos(resPermisos.data);
@@ -367,8 +383,9 @@ export default function App() {
                   </div>
 
                   <div className="doors-grid-quick wireframe-target" data-figma-label="Auto-Layout: Quick_Doors_List">
-                    {[1, 2, 3, 4].map((areaId) => {
-                      const cfg = AREAS_DB[areaId];
+                    {areas.map((area) => {
+                      const areaId = area.id;
+                      const cfg = area;
                       const ultimoEv = getUltimoEventoPuerta(areaId);
                       const fueConcedido = ultimoEv ? ultimoEv.acceso_concedido : null;
 
@@ -388,7 +405,7 @@ export default function App() {
                               <span className={`mini-led-indicator ${fueConcedido === false ? 'red-on' : ''}`}></span>
                             </div>
                           </div>
-                          <h4 className="door-name">{cfg.descripcion}</h4>
+                          <h4 className="door-name">{cfg.descripcion || cfg.nombre}</h4>
                           <div className="door-loc">{cfg.ubicacion}</div>
 
                           {/* Texto limpio sin color de fondo alrededor */}
@@ -432,7 +449,7 @@ export default function App() {
                           {historial.slice(0, 5).map((row) => (
                             <tr key={row.id}>
                               <td>{new Date(row.fecha_hora).toLocaleTimeString()}</td>
-                              <td>{AREAS_DB[row.area_id]?.descripcion || `Área ${row.area_id}`}</td>
+                              <td>{getAreaObj(row.area_id)?.descripcion || `Área ${row.area_id}`}</td>
                               <td><code>{row.codigo_rfid_leido}</code></td>
                               <td>{row.tarjeta_codigo ? <code>{row.tarjeta_codigo}</code> : 'Sin Asignar'}</td>
                               <td>
@@ -445,6 +462,13 @@ export default function App() {
                               <td><small>{row.sincronizado_offline ? 'Sí' : 'No'}</small></td>
                             </tr>
                           ))}
+                          {historial.length === 0 && (
+                            <tr>
+                              <td colSpan="7" style={{ textAlign: 'center', padding: '24px 12px', color: '#888' }}>
+                                Sin eventos de acceso registrados en la base de datos.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -467,8 +491,9 @@ export default function App() {
                   </div>
 
                   <div className="doors-detailed-grid wireframe-target" data-figma-label="Auto-Layout: Doors_Control_Matrix">
-                    {[1, 2, 3, 4].map((areaId) => {
-                      const cfg = AREAS_DB[areaId];
+                    {areas.map((area) => {
+                      const areaId = area.id;
+                      const cfg = area;
                       const ultimoEv = getUltimoEventoPuerta(areaId);
                       const fueConcedido = ultimoEv ? ultimoEv.acceso_concedido : null;
 
@@ -488,7 +513,7 @@ export default function App() {
                                 {estadoTexto}
                               </span>
                             </div>
-                            <h3 className="door-full-title">{cfg.descripcion}</h3>
+                            <h3 className="door-full-title">{cfg.descripcion || cfg.nombre}</h3>
                             <div className="door-loc" style={{ marginBottom: 14 }}>{cfg.ubicacion}</div>
 
                             {/* Indicadores Visuales Limpios */}
@@ -555,10 +580,9 @@ export default function App() {
                       <label>Área:</label>
                       <select value={filtroArea} onChange={(e) => setFiltroArea(e.target.value)}>
                         <option value="todas">Todas las Puertas</option>
-                        <option value="1">Puerta Norte</option>
-                        <option value="2">Puerta Sur</option>
-                        <option value="3">Puerta Este</option>
-                        <option value="4">Puerta Oeste</option>
+                        {areas.map((a) => (
+                          <option key={a.id} value={a.id}>{a.descripcion || a.nombre}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="filter-item">
@@ -592,7 +616,7 @@ export default function App() {
                             <tr key={row.id}>
                               <td>#{row.id}</td>
                               <td><strong>{new Date(row.fecha_hora).toLocaleString()}</strong></td>
-                              <td>{AREAS_DB[row.area_id]?.descripcion || `Área ${row.area_id}`}</td>
+                              <td>{getAreaObj(row.area_id)?.descripcion || getAreaObj(row.area_id)?.nombre || `Área ${row.area_id}`}</td>
                               <td><code>{row.codigo_rfid_leido}</code></td>
                               <td>{row.tarjeta_codigo ? <code>{row.tarjeta_codigo}</code> : 'Sin Asignar'}</td>
                               <td>
@@ -719,7 +743,7 @@ export default function App() {
                             return (
                               <tr key={idx}>
                                 <td>{u ? u.nombre_completo : `Usuario #${p.usuario_id}`}</td>
-                                <td>{AREAS_DB[p.area_id]?.descripcion || `Área ${p.area_id}`}</td>
+                                <td>{getAreaObj(p.area_id)?.descripcion || getAreaObj(p.area_id)?.nombre || `Área ${p.area_id}`}</td>
                                 <td>
                                   <span className={p.esta_activo ? 'text-status-ok' : 'text-status-deny'}>
                                     {p.esta_activo ? 'Activo' : 'Inactivo'}

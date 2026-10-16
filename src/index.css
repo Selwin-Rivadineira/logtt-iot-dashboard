@@ -1,0 +1,92 @@
+/* =====================================================================
+   LOGTT - SISTEMA DE CONTROL Y MONITOREO DE ACCESO IOT (REACT APP)
+   Estudiante: Rivadineira Medrano Selwin
+   Colores originales: #ff4b2b, #ff416c, #f6f5f7, #ffffff, #333333
+===================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap");
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --primary-color: #ff4b2b;
+  --secondary-color: #ff416c;
+  --primary-gradient: linear-gradient(to right, #ff4b2b, #ff416c);
+  --bg-color: #f6f5f7;
+  --card-bg: #ffffff;
+  --text-main: #333333;
+  --text-muted: #777777;
+  --border-light: #ececec;
+  --success-color: #43a047;
+  --success-bg: #e8f5e9;
+  --danger-color: #e53935;
+  --danger-bg: #fdecea;
+}
+
+body {
+  font-family: "Poppins", sans-serif;
+  background: var(--bg-color);
+  min-height: 100vh;
+  color: var(--text-main);
+  transition: background 0.3s ease;
+}
+
+button {
+  font-family: "Poppins", sans-serif;
+  cursor: pointer;
+  border-radius: 20px;
+  border: 1px solid var(--primary-color);
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 24px;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+button:focus {
+  outline: none;
+}
+
+input, select {
+  font-family: "Poppins", sans-serif;
+}
+
+/* =====================================================================
+   MODO WIREFRAME / FIGMA BLUEPRINT
+===================================================================== */
+body.wireframe-mode {
+  background-color: #f1f5f9 !important;
+  background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px) !important;
+  background-size: 16px 16px !important;
+}
+
+body.wireframe-mode .wireframe-target {
+  border: 1.5px dashed #2563eb !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+body.wireframe-mode .wireframe-target::before {
+  content: attr(data-figma-label);
+  position: absolute;
+  top: -14px;
+  left: 8px;
+  font-family: monospace;
+  font-size: 9px;
+  background: #2563eb;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  z-index: 10;
+  pointer-events: none;
+}

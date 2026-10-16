@@ -78,6 +78,9 @@ CREATE POLICY "Lectura publica tarjeta" ON tarjeta FOR SELECT USING (true);
 ALTER TABLE permiso ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Lectura publica permiso" ON permiso FOR SELECT USING (true);
 
+-- 7. HABILITAR TIEMPO REAL (REALTIME) PARA HISTORIAL DE ACCESOS
+ALTER PUBLICATION supabase_realtime ADD TABLE historial_acceso;
+
 -- =====================================================================
 -- CONSULTA SQL ÚNICA CONSUMIDA POR EL DASHBOARD:
 -- =====================================================================

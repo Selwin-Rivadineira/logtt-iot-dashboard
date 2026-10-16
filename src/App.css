@@ -777,16 +777,263 @@ button.ghost:hover {
   border-color: #ced6e0;
 }
 
+/* Botón alternador para móviles en login (oculto en escritorio) */
+.mobile-switch-auth-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #ff4b2b;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 14px;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.mobile-switch-auth-btn:hover {
+  text-decoration: underline;
+}
+
+/* =====================================================================
+   SISTEMA DE DISEÑO RESPONSIVO (Móviles, Tablets y Escritorios)
+   ===================================================================== */
+
+@media (max-width: 1024px) {
+  .panel-main-content {
+    padding: 24px 20px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
+  /* Login Responsivo */
+  .login-view-wrapper {
+    padding: 20px 12px;
+  }
+
+  .login-card-container {
+    width: 100%;
+    max-width: 440px;
+    min-height: auto;
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .overlay-container {
+    display: none; /* En móvil se oculta el slider pesado */
+  }
+
+  .login-form-container {
+    position: static;
+    width: 100%;
+    height: auto;
+    transform: none !important;
+    opacity: 1 !important;
+    display: none;
+  }
+
+  .login-card-container:not(.right-panel-active) .sign-in-container {
+    display: block;
+  }
+
+  .login-card-container.right-panel-active .sign-up-container {
+    display: block;
+  }
+
+  .login-form-container form {
+    padding: 36px 24px;
+  }
+
+  .login-form-container input {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .mobile-switch-auth-btn {
+    display: inline-block;
+  }
+
+  /* Topbar Responsivo */
+  .panel-topbar {
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .topbar-left {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .topbar-left .title-group h1 {
+    font-size: 14px;
+  }
+
+  .topbar-right {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .user-chip {
+    border-left: none;
+    padding: 0;
+    font-size: 11px;
+  }
+
+  .chip-online {
+    font-size: 11px;
+  }
+
+  .btn-wireframe,
+  .btn-logout {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  /* Sidebar Responsivo: barra horizontal desplazable */
   .panel-body-layout {
     flex-direction: column;
   }
+
   .panel-sidebar {
     width: 100%;
+    padding: 8px 12px;
     border-right: none;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 30;
   }
+
+  .sidebar-title {
+    display: none;
+  }
+
+  .panel-sidebar > div {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+
+  .panel-sidebar > div::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-nav-item {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-left: 1px solid #e2e8f0;
+    text-align: center;
+  }
+
+  .sidebar-nav-item:hover,
+  .sidebar-nav-item.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+    border-left-color: var(--primary-color);
+    font-weight: 600;
+  }
+
+  /* Contenido y Grids */
   .panel-main-content {
-    padding: 16px;
+    padding: 18px 14px;
+  }
+
+  .section-top-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .section-top-header button {
+    width: 100%;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .kpi-card {
+    padding: 14px 12px;
+  }
+
+  .kpi-number {
+    font-size: 22px;
+  }
+
+  .doors-grid-quick,
+  .doors-detailed-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Filtros en móvil */
+  .filters-bar {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .filter-item {
+    width: 100%;
+  }
+
+  .filter-item input,
+  .filter-item select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Tablas con scroll horizontal suave */
+  .logs-container-box {
+    padding: 14px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .logs-data-table {
+    min-width: 580px;
+    font-size: 11px;
+  }
+
+  .logs-data-table th,
+  .logs-data-table td {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-right {
+    justify-content: flex-start;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getSupabaseClient, getSupabaseConfig, saveSupabaseConfig } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import './App.css';
 
 // Mapeo de áreas/puertas
@@ -65,24 +65,19 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [queryLatency, setQueryLatency] = useState(null);
 
-  // Configuración de conexión Supabase
-  const [supaUrl, setSupaUrl] = useState(getSupabaseConfig().url);
-  const [supaKey, setSupaKey] = useState(getSupabaseConfig().key);
-  const [configStatus, setConfigStatus] = useState('');
-
   // Filtros de auditoría
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
   // Consulta directa a la base de datos Supabase
-  const fetchHistorial = async () => {
-    setLoading(true);
+  const fetchHistorial = async (silent = false) => {
+    if (!silent) setLoading(true);
     const t0 = performance.now();
 
     const client = getSupabaseClient();
     if (!client) {
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
 
@@ -96,13 +91,13 @@ export default function App() {
       const t1 = performance.now();
       setQueryLatency(Math.round(t1 - t0));
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setHistorial(data);
       }
     } catch (err) {
       console.warn('Consulta de base de datos:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -126,25 +121,33 @@ export default function App() {
     }
   };
 
-  // Suscripción Real-Time
+  // Suscripción Real-Time WebSocket + Polling silencioso continuo sin recargar página
   useEffect(() => {
     if (view === 'panel') {
-      fetchHistorial();
+      fetchHistorial(false);
       fetchTablasAuxiliares();
 
+      // 1. Canal WebSocket de Supabase para detección instantánea de INSERT
       const client = getSupabaseClient();
+      let canal = null;
       if (client) {
-        const canal = client
-          .channel('cambios_historial')
+        canal = client
+          .channel('cambios_historial_realtime')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'historial_acceso' }, () => {
-            fetchHistorial();
+            fetchHistorial(true);
           })
           .subscribe();
-
-        return () => {
-          client.removeChannel(canal);
-        };
       }
+
+      // 2. Sondeo en segundo plano cada 2 segundos (garantiza actualización automática sin refresh)
+      const pollInterval = setInterval(() => {
+        fetchHistorial(true);
+      }, 2000);
+
+      return () => {
+        if (client && canal) client.removeChannel(canal);
+        clearInterval(pollInterval);
+      };
     }
   }, [view]);
 
@@ -157,15 +160,6 @@ export default function App() {
     } else {
       document.body.classList.remove('wireframe-mode');
     }
-  };
-
-  // Guardar configuración
-  const handleGuardarConfig = () => {
-    saveSupabaseConfig(supaUrl, supaKey);
-    setConfigStatus('Configuración guardada correctamente.');
-    fetchHistorial();
-    fetchTablasAuxiliares();
-    setTimeout(() => setConfigStatus(''), 3000);
   };
 
   // Exportar auditoría a CSV
@@ -229,6 +223,9 @@ export default function App() {
                 <input type="email" placeholder="Email institucional" defaultValue="prueba@logtt.iot" />
                 <input type="password" placeholder="Contraseña de acceso" defaultValue="••••••••" />
                 <button type="submit">Registrar</button>
+                <button type="button" className="mobile-switch-auth-btn" onClick={() => setIsSignUpActive(false)}>
+                  ¿Ya tienes cuenta? Inicia Sesión
+                </button>
               </form>
             </div>
 
@@ -241,6 +238,9 @@ export default function App() {
                 <input type="password" placeholder="Contraseña" defaultValue="admin123" />
                 <a href="#" className="forgot-link">¿Olvidaste tu contraseña?</a>
                 <button type="submit">Iniciar Sesión</button>
+                <button type="button" className="mobile-switch-auth-btn" onClick={() => setIsSignUpActive(true)}>
+                  ¿No tienes cuenta? Crear Cuenta
+                </button>
               </form>
             </div>
 
@@ -313,9 +313,6 @@ export default function App() {
                 </button>
                 <button className={`sidebar-nav-item ${activeTab === 'usuarios' ? 'active' : ''}`} onClick={() => setActiveTab('usuarios')}>
                   Usuarios y Permisos
-                </button>
-                <button className={`sidebar-nav-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>
-                  Configuración
                 </button>
               </div>
             </aside>
@@ -733,59 +730,6 @@ export default function App() {
                           })}
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ---------------- PESTAÑA 5: CONFIGURACIÓN ---------------- */}
-              {activeTab === 'config' && (
-                <div className="tab-config-view">
-                  <div className="section-top-header">
-                    <div>
-                      <span className="section-badge-tag">Parámetros del Sistema</span>
-                      <h2>Configuración de Base de Datos</h2>
-                      <p className="section-desc">Credenciales y endpoint de conexión a Supabase.</p>
-                    </div>
-                  </div>
-
-                  <div style={{ maxWidth: 600 }}>
-                    <div className="logs-container-box">
-                      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Parámetros de Conexión</h3>
-                      <div style={{ marginBottom: 14 }}>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>
-                          Endpoint URL:
-                        </label>
-                        <input
-                          type="text"
-                          value={supaUrl}
-                          onChange={(e) => setSupaUrl(e.target.value)}
-                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 6 }}
-                        />
-                      </div>
-
-                      <div style={{ marginBottom: 14 }}>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>
-                          Publishable API Key:
-                        </label>
-                        <input
-                          type="password"
-                          value={supaKey}
-                          onChange={(e) => setSupaKey(e.target.value)}
-                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: 6 }}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                        <button onClick={handleGuardarConfig}>Guardar Credenciales</button>
-                        <button className="btn-secondary" onClick={fetchHistorial}>Probar Conexión</button>
-                      </div>
-
-                      {configStatus && (
-                        <div style={{ marginTop: 12, padding: 8, background: '#e8f5e9', color: '#2e7d32', borderRadius: 6, fontSize: 12 }}>
-                          {configStatus}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

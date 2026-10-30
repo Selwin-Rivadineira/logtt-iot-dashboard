@@ -1,52 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { getSupabaseClient } from './supabaseClient';
+import React, { useState } from 'react';
+import { getSupabaseConfig } from './supabaseClient';
+import { useDashboardData } from './useDashboardData';
 import './App.css';
-
-// Mapeo inicial por defecto de áreas/puertas (fallback si la BD está vacía)
-const AREAS_DEFAULT = [
-  { id: 1, nombre: 'norte', descripcion: 'Puerta Norte', ubicacion: 'Acceso Principal' },
-  { id: 2, nombre: 'sur',   descripcion: 'Puerta Sur',   ubicacion: 'Datacenter' },
-  { id: 3, nombre: 'este',  descripcion: 'Puerta Este',  ubicacion: 'Laboratorio' },
-  { id: 4, nombre: 'oeste', descripcion: 'Puerta Oeste', ubicacion: 'Almacén' }
-];
-
-// Datos iniciales de la base de datos
-const DATOS_INICIALES_BD = {
-  historial_acceso: [
-    {
-      id: 2,
-      codigo_rfid_leido: '11223344',
-      tarjeta_codigo: '11223344',
-      area_id: 1,
-      fecha_hora: '2026-10-14T13:28:49.638Z',
-      acceso_concedido: true,
-      motivo: 'Permiso valido',
-      sincronizado_offline: false
-    },
-    {
-      id: 1,
-      codigo_rfid_leido: '01020304',
-      tarjeta_codigo: null,
-      area_id: 1,
-      fecha_hora: '2026-10-14T13:28:40.489Z',
-      acceso_concedido: false,
-      motivo: 'Tarjeta no registrada',
-      sincronizado_offline: false
-    }
-  ],
-  usuario: [
-    { id: 1, nombre_completo: 'Administrador', rol: 'admin', esta_activo: true },
-    { id: 2, nombre_completo: 'Usuario Prueba', rol: 'empleado', esta_activo: true }
-  ],
-  tarjeta: [
-    { codigo_rfid: 'AABBCCDD', usuario_id: 1, es_llave_maestra: true, esta_activa: true },
-    { codigo_rfid: '11223344', usuario_id: 2, es_llave_maestra: false, esta_activa: true }
-  ],
-  permiso: [
-    { usuario_id: 2, area_id: 1, esta_activo: true },
-    { usuario_id: 2, area_id: 3, esta_activo: true }
-  ]
-};
 
 export default function App() {
   // Navegación
@@ -55,16 +10,13 @@ export default function App() {
   const [isSignUpActive, setIsSignUpActive] = useState(false);
   const [isWireframe, setIsWireframe] = useState(false);
 
-  // Datos reales leídos directamente de la Base de Datos Supabase
-  const [areas, setAreas] = useState(AREAS_DEFAULT);
-  const [historial, setHistorial] = useState(DATOS_INICIALES_BD.historial_acceso);
-  const [usuarios, setUsuarios] = useState(DATOS_INICIALES_BD.usuario);
-  const [tarjetas, setTarjetas] = useState(DATOS_INICIALES_BD.tarjeta);
-  const [permisos, setPermisos] = useState(DATOS_INICIALES_BD.permiso);
-
-  // Estados de consulta
-  const [loading, setLoading] = useState(false);
-  const [queryLatency, setQueryLatency] = useState(null);
+  const { data, loading, errors, queryLatency, lastSync, checked, realtime, refresh } = useDashboardData(view === 'panel');
+  const { area: areas, historial_acceso: historial, usuario: usuarios, tarjeta: tarjetas, permiso: permisos } = data;
+  const hasErrors = Object.keys(errors).length > 0;
+  const noVisibleRows = checked && !hasErrors && Object.values(data).every((rows) => rows.length === 0);
+  const projectUrl = getSupabaseConfig().url;
+  const anonKey = getSupabaseConfig().key;
+  const keyIsPublishable = anonKey && !anonKey.startsWith('eyJ');
 
   // Filtros de auditoría
   const [filtroTexto, setFiltroTexto] = useState('');
@@ -75,97 +27,8 @@ export default function App() {
   const getAreaObj = (areaId) => {
     const found = areas.find((a) => a.id === areaId);
     if (found) return found;
-    return { id: areaId, nombre: `area_${areaId}`, descripcion: `Puerta Área ${areaId}`, ubicacion: 'Zona Controlada' };
+    return { id: areaId, nombre: `area_${areaId}`, descripcion: `Puerta Área ${areaId}`, ubicacion: '' };
   };
-
-  // Consulta directa a la base de datos Supabase (historial_acceso)
-  const fetchHistorial = async (silent = false) => {
-    if (!silent) setLoading(true);
-    const t0 = performance.now();
-
-    const client = getSupabaseClient();
-    if (!client) {
-      if (!silent) setLoading(false);
-      return;
-    }
-
-    try {
-      const { data, error } = await client
-        .from('historial_acceso')
-        .select('*')
-        .order('fecha_hora', { ascending: false })
-        .limit(100);
-
-      const t1 = performance.now();
-      setQueryLatency(Math.round(t1 - t0));
-
-      if (!error && data && data.length > 0) {
-        setHistorial(data);
-      }
-    } catch (err) {
-      console.warn('Consulta de base de datos:', err);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  // Lectura directa de todas las tablas auxiliares de la BD (area, usuario, tarjeta, permiso)
-  const fetchTablasAuxiliares = async () => {
-    const client = getSupabaseClient();
-    if (!client) return;
-
-    try {
-      const [resAreas, resUsuarios, resTarjetas, resPermisos] = await Promise.all([
-        client.from('area').select('*'),
-        client.from('usuario').select('*'),
-        client.from('tarjeta').select('*'),
-        client.from('permiso').select('*')
-      ]);
-
-      if (resAreas.data && resAreas.data.length > 0) {
-        const areasMapeadas = resAreas.data.map((a) => ({
-          ...a,
-          ubicacion: a.ubicacion || (a.id === 1 ? 'Acceso Principal' : a.id === 2 ? 'Datacenter' : a.id === 3 ? 'Laboratorio' : 'Almacén')
-        }));
-        setAreas(areasMapeadas);
-      }
-      if (resUsuarios.data && resUsuarios.data.length > 0) setUsuarios(resUsuarios.data);
-      if (resTarjetas.data && resTarjetas.data.length > 0) setTarjetas(resTarjetas.data);
-      if (resPermisos.data && resPermisos.data.length > 0) setPermisos(resPermisos.data);
-    } catch (e) {
-      console.warn('Lectura de entidades secundarias:', e);
-    }
-  };
-
-  // Suscripción Real-Time WebSocket + Polling silencioso continuo sin recargar página
-  useEffect(() => {
-    if (view === 'panel') {
-      fetchHistorial(false);
-      fetchTablasAuxiliares();
-
-      // 1. Canal WebSocket de Supabase para detección instantánea de INSERT
-      const client = getSupabaseClient();
-      let canal = null;
-      if (client) {
-        canal = client
-          .channel('cambios_historial_realtime')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'historial_acceso' }, () => {
-            fetchHistorial(true);
-          })
-          .subscribe();
-      }
-
-      // 2. Sondeo en segundo plano cada 2 segundos (garantiza actualización automática sin refresh)
-      const pollInterval = setInterval(() => {
-        fetchHistorial(true);
-      }, 2000);
-
-      return () => {
-        if (client && canal) client.removeChannel(canal);
-        clearInterval(pollInterval);
-      };
-    }
-  }, [view]);
 
   // Modo Wireframe
   const toggleWireframe = () => {
@@ -303,7 +166,7 @@ export default function App() {
 
               <div className="chip-online">
                 <span className="dot-pulse"></span>
-                <span>4 Lectores en Servicio</span>
+                <span>{areas.length} áreas registradas</span>
               </div>
 
               <span className="user-chip">Selwin Rivadineira</span>
@@ -345,9 +208,6 @@ export default function App() {
                       <h2>Métricas y Registro de Operación</h2>
                       <p className="section-desc">Supervisión centralizada de puntos de acceso y auditoría de eventos.</p>
                     </div>
-                    <div>
-                      <button onClick={fetchHistorial}>Actualizar Datos</button>
-                    </div>
                   </div>
 
                   {/* KPIs */}
@@ -365,11 +225,11 @@ export default function App() {
                       <div className="kpi-label">Intentos Denegados</div>
                     </div>
                     <div className="kpi-card">
-                      <div className="kpi-number">4/4</div>
+                      <div className="kpi-number">{areas.length}</div>
                       <div className="kpi-label">Áreas Monitoreadas</div>
                     </div>
                     <div className="kpi-card">
-                      <div className="kpi-number">{queryLatency ? `${queryLatency}ms` : '15ms'}</div>
+                      <div className="kpi-number">{queryLatency !== null && !hasErrors ? `${queryLatency}ms` : '—'}</div>
                       <div className="kpi-label">Latencia del Servidor</div>
                     </div>
                   </div>
@@ -383,6 +243,7 @@ export default function App() {
                   </div>
 
                   <div className="doors-grid-quick wireframe-target" data-figma-label="Auto-Layout: Quick_Doors_List">
+                    {areas.length === 0 && <p>Sin áreas visibles para esta conexión.</p>}
                     {areas.map((area) => {
                       const areaId = area.id;
                       const cfg = area;
@@ -465,7 +326,7 @@ export default function App() {
                           {historial.length === 0 && (
                             <tr>
                               <td colSpan="7" style={{ textAlign: 'center', padding: '24px 12px', color: '#888' }}>
-                                Sin eventos de acceso registrados en la base de datos.
+                                {loading && !checked ? 'Cargando eventos…' : errors.historial_acceso ? 'No se pudo leer el historial. Revisa el error de conexión.' : 'Sin eventos visibles para esta conexión.'}
                               </td>
                             </tr>
                           )}
@@ -485,12 +346,10 @@ export default function App() {
                       <h2>Detalle de Puertas Perimetrales</h2>
                       <p className="section-desc">Monitoreo del último estado registrado por punto de control.</p>
                     </div>
-                    <div>
-                      <button onClick={fetchHistorial}>Actualizar Estado</button>
-                    </div>
                   </div>
 
                   <div className="doors-detailed-grid wireframe-target" data-figma-label="Auto-Layout: Doors_Control_Matrix">
+                    {areas.length === 0 && <p>Sin áreas visibles para esta conexión.</p>}
                     {areas.map((area) => {
                       const areaId = area.id;
                       const cfg = area;
@@ -559,8 +418,7 @@ export default function App() {
                       <h2>Historial Completo de Registros</h2>
                       <p className="section-desc">Auditoría detallada de todos los eventos registrados en el sistema.</p>
                     </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={fetchHistorial}>Refrescar</button>
+                    <div>
                       <button className="btn-secondary" onClick={exportarCSV}>Exportar CSV</button>
                     </div>
                   </div>
@@ -632,7 +490,7 @@ export default function App() {
                           {historialFiltrado.length === 0 && (
                             <tr>
                               <td colSpan="8" style={{ textAlign: 'center', padding: 24, color: '#888' }}>
-                                No se encontraron registros coincidentes con los filtros aplicados.
+                                {loading && !checked ? 'Cargando historial…' : errors.historial_acceso ? 'No se pudo leer el historial. Revisa el error de conexión.' : 'No hay registros visibles con los filtros actuales.'}
                               </td>
                             </tr>
                           )}
@@ -654,9 +512,6 @@ export default function App() {
                       <span className="section-badge-tag">Control de Identidades</span>
                       <h2>Usuarios, Llaves Maestras y Permisos</h2>
                       <p className="section-desc">Entidades registradas y permisos de acceso por punto de control.</p>
-                    </div>
-                    <div>
-                      <button onClick={fetchTablasAuxiliares}>Recargar</button>
                     </div>
                   </div>
 
@@ -682,6 +537,7 @@ export default function App() {
                               <td><span className={u.esta_activo ? 'text-status-ok' : 'text-status-deny'}>{u.esta_activo ? 'Activo' : 'Inactivo'}</span></td>
                             </tr>
                           ))}
+                        {usuarios.length === 0 && <tr><td colSpan="4">Sin usuarios visibles para esta conexión.</td></tr>}
                         </tbody>
                       </table>
                     </div>
@@ -720,6 +576,7 @@ export default function App() {
                               </tr>
                             );
                           })}
+                        {tarjetas.length === 0 && <tr><td colSpan="4">Sin tarjetas visibles para esta conexión.</td></tr>}
                         </tbody>
                       </table>
                     </div>
@@ -752,6 +609,7 @@ export default function App() {
                               </tr>
                             );
                           })}
+                        {permisos.length === 0 && <tr><td colSpan="3">Sin permisos visibles para esta conexión.</td></tr>}
                         </tbody>
                       </table>
                     </div>

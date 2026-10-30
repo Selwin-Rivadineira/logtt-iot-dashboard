@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test",
+    "check:supabase": "node scripts/check-supabase.mjs",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

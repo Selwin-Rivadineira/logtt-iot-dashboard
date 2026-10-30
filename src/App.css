@@ -410,6 +410,28 @@ button.ghost:hover {
   overflow-y: auto;
 }
 
+.sync-status {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.sync-status strong { color: #166534; }
+.sync-warning { border-color: #d97706; background: #fffbeb; }
+.sync-warning strong { color: #92400e; }
+.sync-error { border-color: #dc2626; background: #fef2f2; }
+.sync-error strong { color: #991b1b; }
+.sync-status ul { padding-left: 20px; }
+button:disabled { opacity: 0.6; cursor: wait; }
+
 .section-top-header {
   display: flex;
   justify-content: space-between;

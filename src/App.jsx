@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getSupabaseClient } from './supabaseClient';
+import pusher from './lib/pusher';
 import './App.css';
 
 // Mapeo inicial por defecto de áreas/puertas (fallback si la BD está vacía)
@@ -155,13 +156,51 @@ export default function App() {
           .subscribe();
       }
 
-      // 2. Sondeo en segundo plano cada 2 segundos (garantiza actualización automática sin refresh)
+      // 2. Suscripción a eventos Pusher para IoT en tiempo real (Node-RED: rfid-channel -> rfid-read)
+      const unsubscribePusher = pusher.subscribeToRFID((payload) => {
+        try {
+          let data = payload;
+          if (typeof data === 'string') {
+            try {
+              data = JSON.parse(data);
+            } catch {
+              data = { codigo_rfid_leido: data };
+            }
+          }
+
+          if (data && typeof data === 'object') {
+            const normalizado = {
+              id: data.id || Date.now(),
+              codigo_rfid_leido: data.codigo_rfid_leido || data.rfid || data.uid || data.tarjeta || 'RFID_DESCONOCIDO',
+              tarjeta_codigo: data.tarjeta_codigo || data.tarjeta || data.rfid || null,
+              area_id: Number(data.area_id || data.area || data.puerta_id || 1),
+              fecha_hora: data.fecha_hora || data.timestamp || new Date().toISOString(),
+              acceso_concedido: data.acceso_concedido !== undefined 
+                ? Boolean(data.acceso_concedido)
+                : (data.access !== undefined ? Boolean(data.access) : true),
+              motivo: data.motivo || data.reason || (data.acceso_concedido === false ? 'Acceso Denegado' : 'Acceso Autorizado por IoT'),
+              sincronizado_offline: Boolean(data.sincronizado_offline),
+            };
+
+            setHistorial((prev) => [normalizado, ...prev.filter((item) => item.id !== normalizado.id)]);
+          }
+
+          // Sincronizar también con Supabase por si Node-RED registró el evento en la BD
+          fetchHistorial(true);
+        } catch (err) {
+          console.warn('[Pusher/Node-RED] Error procesando lectura RFID:', err);
+          fetchHistorial(true);
+        }
+      });
+
+      // 3. Sondeo en segundo plano cada 2 segundos (garantiza actualización automática sin refresh)
       const pollInterval = setInterval(() => {
         fetchHistorial(true);
       }, 2000);
 
       return () => {
         if (client && canal) client.removeChannel(canal);
+        unsubscribePusher();
         clearInterval(pollInterval);
       };
     }

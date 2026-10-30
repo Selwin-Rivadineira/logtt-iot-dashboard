@@ -1,18 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// URL y Clave pública de Supabase
-export const DEFAULT_SUPABASE_URL = 'https://azsjsofedwlgelcdpmpi.supabase.co';
-export const DEFAULT_SUPABASE_KEY = 'sb_publishable_TKCgdoZDDNQSe7D-a-kwpA_SbPLvgCE';
-
-// Obtener credenciales desde variables de entorno de Vite, localStorage o valores por defecto
+// Obtener credenciales desde variables de entorno de Vite o localStorage
 export const getSupabaseConfig = () => {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   const localUrl = localStorage.getItem('logtt_supabase_url');
   const localKey = localStorage.getItem('logtt_supabase_anon_key');
 
-  const url = localUrl || envUrl || DEFAULT_SUPABASE_URL;
-  const key = localKey || envKey || DEFAULT_SUPABASE_KEY;
+  const url = localUrl || envUrl;
+  const key = localKey || envKey;
 
   return { url, key };
 };
@@ -25,7 +21,7 @@ export const saveSupabaseConfig = (url, key) => {
 // Cliente dinámico de Supabase
 export const getSupabaseClient = () => {
   const { url, key } = getSupabaseConfig();
-  if (!key) return null;
+  if (!url || !key) return null;
   try {
     return createClient(url, key, {
       auth: { persistSession: false },

@@ -1,6 +1,6 @@
 import { loadEnv } from 'vite';
 import { createClient } from '@supabase/supabase-js';
-import { TABLES } from '../src/dashboardSync.js';
+const TABLES = ['area', 'usuario', 'tarjeta', 'permiso', 'historial_acceso'];
 
 const env = { ...loadEnv('development', process.cwd(), 'VITE_'), ...process.env };
 const url = env.VITE_SUPABASE_URL;

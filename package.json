@@ -1,15 +1,18 @@
 {
-  "name": "logtt-dashboard",
+  "name": "logtt-iot-root",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
-    "dev": "vite",
-    "test": "node --test",
-    "check:supabase": "node scripts/check-supabase.mjs",
-    "build": "vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview",
+    "check:supabase": "node backend/scripts/check-supabase.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

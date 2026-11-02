@@ -22,20 +22,35 @@ Desarrollado para la entrega de Sprint:
 ## 📂 Estructura del Repositorio
 
 ```text
-├── public/                 # Favicons y recursos públicos
-├── src/
-│   ├── App.jsx             # Vista de autenticación y Dashboard de monitoreo
-│   ├── App.css             # Estilos sobrios y diseño responsivo
-│   ├── supabaseClient.js   # Cliente Supabase compartido y configuración
-│   ├── dashboardSync.js    # Lecturas paginadas, Realtime y sondeo
-│   ├── useDashboardData.js # Ciclo de vida de la sincronización en React
-│   └── main.jsx            # Punto de entrada de la aplicación
-├── seed_real_supabase.sql  # Datos de prueba y políticas (no es una migración de reparación)
-├── supabase/diagnostico_lectura.sql # Diagnóstico de solo lectura
-├── scripts/check-supabase.mjs      # Comprobación de acceso desde la API pública
-├── vercel.json             # Configuración de rutas para despliegue en Vercel
-├── .env.example            # Plantilla de variables de entorno
-└── package.json
+├── backend/
+│   ├── sql/
+│   │   ├── seed_real_supabase.sql   # Datos de prueba, llaves maestras y permisos
+│   │   ├── diagnostico_lectura.sql  # Diagnóstico de permisos y lectura RLS
+│   │   └── fix_rls_policies.sql     # Corrección de políticas públicas
+│   ├── scripts/
+│   │   └── check-supabase.mjs       # Comprobación de API y conectividad Supabase
+│   └── README.md                    # Documentación del backend y tablas
+├── frontend/
+│   ├── public/                      # Recursos estáticos
+│   ├── src/
+│   │   ├── components/              # Componentes modulares
+│   │   │   ├── auth/                # Login y Registro (LoginView)
+│   │   │   ├── layout/              # Header y Sidebar
+│   │   │   ├── dashboard/           # KPIs, listado rápido y tabla reciente
+│   │   │   ├── doors/               # Matriz de puertas y actuadores virtuales
+│   │   │   ├── history/             # Auditoría completa, filtros y exportación CSV
+│   │   │   └── users/               # Usuarios, tarjetas RFID y permisos
+│   │   ├── hooks/                   # useDashboardData (sincronización y ciclo de vida)
+│   │   ├── services/                # Supabase, Pusher y lógica de sincronización
+│   │   ├── styles/                  # App.css y index.css
+│   │   ├── App.jsx                  # Orquestador principal de vistas y estado
+│   │   └── main.jsx                 # Entrada de la aplicación React
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
+├── vercel.json                      # Configuración de despliegue para frontend
+├── package.json                     # Monorepo runner (scripts dev, build, test, check)
+└── README.md
 ```
 
 ---

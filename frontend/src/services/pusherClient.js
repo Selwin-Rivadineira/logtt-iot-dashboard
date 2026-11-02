@@ -5,7 +5,7 @@ import pusher, {
   subscribe,
   unsubscribe,
   isPusherConfigured
-} from './lib/pusher';
+} from './pusher.js';
 
 export {
   pusherConfig,

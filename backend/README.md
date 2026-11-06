@@ -7,6 +7,7 @@ Módulo para la persistencia, seguridad RLS (Row Level Security), datos de prueb
 ```text
 backend/
 ├── sql/
+│   ├── migracion_tarjeta_por_zona.sql # Migración: asignar tarjetas por zona física y políticas RLS
 │   ├── create_sesion_enrolamiento.sql # Migración: tabla sesion_enrolamiento y políticas RLS
 │   ├── seed_real_supabase.sql         # Inserciones iniciales (usuarios, áreas, llaves maestras, permisos)
 │   ├── diagnostico_lectura.sql        # Script de diagnóstico de solo lectura para permisos RLS
@@ -18,10 +19,10 @@ backend/
 
 ## 🗄️ Esquema de Tablas (PostgreSQL / Supabase)
 
-1. **`area`**: Representa los puntos de acceso / puertas monitoreadas (`id`, `nombre`, `descripcion`, `ubicacion`).
+1. **`area`**: Representa los puntos de acceso / puertas / zonas monitoreadas (`id`, `nombre`, `descripcion`, `ubicacion`).
 2. **`usuario`**: Usuarios y operadores del sistema (`id`, `nombre_completo`, `rol`, `esta_activo`).
-3. **`tarjeta`**: Tarjetas RFID asignadas y Llaves Maestras (`codigo_rfid`, `usuario_id`, `es_llave_maestra`, `esta_activa`).
-4. **`permiso`**: Matriz de permisos de usuarios por área (`usuario_id`, `area_id`, `esta_activo`).
+3. **`tarjeta`**: Tarjetas RFID asignadas por zona (`codigo_rfid`, `usuario_id`, `area_id`, `es_llave_maestra`, `esta_activa`).
+4. **`permiso`**: Matriz de permisos de usuarios por área / zona autorizada (`usuario_id`, `area_id`, `esta_activo`).
 5. **`historial_acceso`**: Registro de auditoría de cada intento de acceso (`id`, `fecha_hora`, `area_id`, `codigo_rfid_leido`, `tarjeta_codigo`, `acceso_concedido`, `motivo`, `sincronizado_offline`).
 6. **`sesion_enrolamiento`**: Sesiones temporales para registrar tarjetas desde lectores RFID (`id`, `area_id`, `uid_detectado`, `estado`, `creado_en`, `expira_en`).
 

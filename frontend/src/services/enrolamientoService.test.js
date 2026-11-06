@@ -34,7 +34,8 @@ test('validarFormatoUID valida cadenas hexadecimales pares válidas', () => {
 });
 
 test('registrarTarjeta rechaza duplicados con status 409 y permite inserción limpia', async () => {
-  const tarjetasDB = [{ codigo_rfid: '01020304', usuario_id: 1 }];
+  const tarjetasDB = [{ codigo_rfid: '01020304', usuario_id: 1, area_id: 1 }];
+  const permisosDB = [];
 
   const fakeClient = {
     from(tabla) {
@@ -66,6 +67,24 @@ test('registrarTarjeta rechaza duplicados con status 409 y permite inserción li
           },
         };
       }
+      if (tabla === 'permiso') {
+        return {
+          select(_cols) {
+            return {
+              eq(_campo, valor) {
+                return Promise.resolve({
+                  data: permisosDB.filter((p) => p.usuario_id === valor),
+                  error: null,
+                });
+              },
+            };
+          },
+          async insert(rows) {
+            permisosDB.push(...rows);
+            return { data: rows, error: null };
+          },
+        };
+      }
       throw new Error(`Tabla ${tabla} no soportada en test`);
     },
   };
@@ -76,6 +95,7 @@ test('registrarTarjeta rechaza duplicados con status 409 y permite inserción li
       await registrarTarjeta(fakeClient, {
         codigoRfid: '01:02:03:04',
         usuarioId: 2,
+        areaId: 1,
       });
     },
     (err) => {
@@ -85,7 +105,7 @@ test('registrarTarjeta rechaza duplicados con status 409 y permite inserción li
     }
   );
 
-  // 2. Registrar UID nuevo 'B5C6D7E8' -> debe guardarse con éxito
+  // 2. Registrar UID nuevo 'B5C6D7E8' como Llave Maestra
   const nueva = await registrarTarjeta(fakeClient, {
     codigoRfid: 'b5-c6-d7-e8',
     usuarioId: 3,
@@ -96,4 +116,100 @@ test('registrarTarjeta rechaza duplicados con status 409 y permite inserción li
   assert.equal(nueva.usuario_id, 3);
   assert.equal(nueva.es_llave_maestra, true);
   assert.equal(nueva.esta_activa, true);
+});
+
+test('registrarTarjeta asigna zona física correctamente y actualiza permisos', async () => {
+  const tarjetasDB = [];
+  const permisosDB = [{ usuario_id: 5, area_id: 1 }];
+
+  const fakeClient = {
+    from(tabla) {
+      if (tabla === 'tarjeta') {
+        return {
+          select() {
+            return {
+              eq(_campo, _valor) {
+                return {
+                  async maybeSingle() {
+                    return { data: null, error: null };
+                  },
+                };
+              },
+            };
+          },
+          insert(rows) {
+            return {
+              select() {
+                return {
+                  async single() {
+                    tarjetasDB.push(rows[0]);
+                    return { data: rows[0], error: null };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (tabla === 'permiso') {
+        return {
+          select() {
+            return {
+              eq(_campo, valor) {
+                return Promise.resolve({
+                  data: permisosDB.filter((p) => p.usuario_id === valor),
+                  error: null,
+                });
+              },
+            };
+          },
+          async insert(rows) {
+            permisosDB.push(...rows);
+            return { data: rows, error: null };
+          },
+        };
+      }
+      throw new Error(`Tabla ${tabla} no soportada en test`);
+    },
+  };
+
+  // Registrar tarjeta seleccionando por zona (Área 2 - Datacenter y Área 3 - Laboratorio)
+  const tarjeta = await registrarTarjeta(fakeClient, {
+    codigoRfid: '99887766',
+    usuarioId: 5,
+    areaId: 2,
+    zonasIds: [2, 3],
+  });
+
+  assert.equal(tarjeta.codigo_rfid, '99887766');
+  assert.equal(tarjeta.area_id, 2);
+  assert.deepEqual(tarjeta.zonas, [2, 3]);
+
+  // Verificar que la tarjeta guardada tiene area_id
+  assert.equal(tarjetasDB[0].area_id, 2);
+
+  // Verificar que permisosDB tiene ahora los nuevos permisos insertados (sin duplicar el 1)
+  assert.ok(permisosDB.some((p) => p.usuario_id === 5 && p.area_id === 2));
+  assert.ok(permisosDB.some((p) => p.usuario_id === 5 && p.area_id === 3));
+});
+
+test('registrarTarjeta exige seleccionar zona si no es llave maestra global', async () => {
+  const fakeClient = { from() {} };
+
+  await assert.rejects(
+    async () => {
+      await registrarTarjeta(fakeClient, {
+        codigoRfid: '11223344',
+        usuarioId: 1,
+        esLlaveMaestra: false,
+        areaId: null,
+        zonasIds: [],
+      });
+    },
+    (err) => {
+      assert.equal(err.status, 400);
+      assert.match(err.message, /Debe seleccionar al menos una zona/);
+      return true;
+    }
+  );
 });

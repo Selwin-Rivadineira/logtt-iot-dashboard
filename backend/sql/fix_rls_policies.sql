@@ -35,8 +35,20 @@ CREATE POLICY "Lectura publica usuario"
 CREATE POLICY "Lectura publica tarjeta"
   ON tarjeta FOR SELECT TO anon USING (true);
 
+CREATE POLICY "Insercion publica tarjeta"
+  ON tarjeta FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "Actualizacion publica tarjeta"
+  ON tarjeta FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
 CREATE POLICY "Lectura publica permiso"
   ON permiso FOR SELECT TO anon USING (true);
+
+CREATE POLICY "Insercion publica permiso"
+  ON permiso FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "Actualizacion publica permiso"
+  ON permiso FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 -- PASO 4: Verificar que el rol 'anon' puede leer las tablas
 SELECT c.relname AS tabla,

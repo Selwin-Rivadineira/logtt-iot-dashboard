@@ -11,9 +11,12 @@ export default function CardRegisterModal({
   onClose,
   onSuccess,
   initialUid = '',
+  initialAreaId = '',
   usuarios = [],
+  areas = [],
 }) {
   const [uid, setUid] = useState(initialUid);
+  const [zonasIds, setZonasIds] = useState([]);
   const [usuarioId, setUsuarioId] = useState('');
   const [esLlaveMaestra, setEsLlaveMaestra] = useState(false);
   const [estaActiva, setEstaActiva] = useState(true);
@@ -27,6 +30,12 @@ export default function CardRegisterModal({
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       setUid(initialUid ? normalizarUID(initialUid) : '');
+      const defaultArea = initialAreaId
+        ? parseInt(initialAreaId, 10)
+        : areas[0]?.id
+        ? areas[0].id
+        : null;
+      setZonasIds(defaultArea ? [defaultArea] : []);
       setUsuarioId(usuarios[0]?.id ? String(usuarios[0].id) : '');
       setEsLlaveMaestra(false);
       setEstaActiva(true);
@@ -34,7 +43,32 @@ export default function CardRegisterModal({
       setSuccessMsg('');
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialUid, usuarios]);
+  }, [isOpen, initialUid, initialAreaId, usuarios, areas]);
+
+  // Alternar selección de una zona específica
+  const toggleZona = (id) => {
+    const idNum = parseInt(id, 10);
+    if (zonasIds.includes(idNum)) {
+      setZonasIds(zonasIds.filter((z) => z !== idNum));
+    } else {
+      setZonasIds([...zonasIds, idNum]);
+    }
+  };
+
+  // Manejar cambio en Llave Maestra
+  const handleMasterChange = (checked) => {
+    setEsLlaveMaestra(checked);
+    if (checked) {
+      setZonasIds(areas.map((a) => a.id));
+    } else {
+      const defaultArea = initialAreaId
+        ? parseInt(initialAreaId, 10)
+        : areas[0]?.id
+        ? areas[0].id
+        : null;
+      setZonasIds(defaultArea ? [defaultArea] : []);
+    }
+  };
 
   // Guardar tarjeta
   const handleSubmit = async (e) => {
@@ -48,6 +82,11 @@ export default function CardRegisterModal({
       return;
     }
 
+    if (!esLlaveMaestra && zonasIds.length === 0) {
+      setErrorMsg('Por favor seleccione al menos una Zona / Área autorizada para la tarjeta.');
+      return;
+    }
+
     if (!usuarioId) {
       setErrorMsg('Por favor seleccione un titular para la tarjeta.');
       return;
@@ -56,14 +95,19 @@ export default function CardRegisterModal({
     setGuardando(true);
     const client = getSupabaseClient();
     try {
+      const finalZonas = esLlaveMaestra ? areas.map((a) => a.id) : zonasIds;
+      const primaryAreaId = finalZonas[0] || null;
+
       await registrarTarjeta(client, {
         codigoRfid: validacion.normalizado,
         usuarioId,
+        areaId: primaryAreaId,
+        zonasIds: finalZonas,
         esLlaveMaestra,
         estaActiva,
       });
 
-      setSuccessMsg(`Tarjeta ${validacion.normalizado} registrada exitosamente.`);
+      setSuccessMsg(`Tarjeta ${validacion.normalizado} registrada exitosamente por zona.`);
       setTimeout(() => {
         onSuccess?.();
         onClose?.();
@@ -104,6 +148,7 @@ export default function CardRegisterModal({
 
         <div className="modal-body">
           <form onSubmit={handleSubmit} className="card-form">
+            {/* Campo 1: UID RFID */}
             <div className="form-group">
               <label>Código RFID (UID):</label>
               <input
@@ -119,6 +164,44 @@ export default function CardRegisterModal({
               </span>
             </div>
 
+            {/* Campo 2: Caja de checkboxes para selección de Zona(s) */}
+            <div className="form-group">
+              <label>Zona(s) / Área(s) Autorizada(s):</label>
+              <div className="zones-checkbox-grid">
+                {areas.map((a) => {
+                  const isChecked = esLlaveMaestra || zonasIds.includes(a.id);
+                  return (
+                    <label
+                      key={a.id}
+                      className={`zone-checkbox-item ${isChecked ? 'checked' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        disabled={esLlaveMaestra}
+                        onChange={() => toggleZona(a.id)}
+                      />
+                      <span className="zone-label-text">
+                        <strong>{a.nombre}</strong>
+                        {a.descripcion && (
+                          <small className="zone-desc-text">{a.descripcion}</small>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+                {areas.length === 0 && (
+                  <span style={{ fontSize: 12, color: '#94a3b8', padding: '6px' }}>
+                    No hay áreas registradas en el sistema.
+                  </span>
+                )}
+              </div>
+              <span className="field-hint">
+                Marca la(s) zona(s) físicas donde esta tarjeta tendrá permiso de acceso.
+              </span>
+            </div>
+
+            {/* Campo 3: Usuario Titular (sin rol) */}
             <div className="form-group">
               <label>Usuario Titular:</label>
               <select
@@ -129,20 +212,24 @@ export default function CardRegisterModal({
                 <option value="">-- Seleccionar Titular --</option>
                 {usuarios.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.nombre_completo} ({u.rol})
+                    {u.nombre_completo}
                   </option>
                 ))}
               </select>
+              <span className="field-hint">
+                Titular responsable de la credencial (la autorización depende de las zonas seleccionadas arriba).
+              </span>
             </div>
 
+            {/* Checkboxes de configuración */}
             <div className="form-row-checkboxes">
               <label className="checkbox-label">
                 <input
                   type="checkbox"
                   checked={esLlaveMaestra}
-                  onChange={(e) => setEsLlaveMaestra(e.target.checked)}
+                  onChange={(e) => handleMasterChange(e.target.checked)}
                 />
-                <span>Asignar como Llave Maestra Global</span>
+                <span>Asignar como Llave Maestra Global (Todas las Zonas)</span>
               </label>
 
               <label className="checkbox-label">
@@ -167,7 +254,7 @@ export default function CardRegisterModal({
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={guardando || !uid || !usuarioId}
+                disabled={guardando || !uid || !usuarioId || (!esLlaveMaestra && zonasIds.length === 0)}
               >
                 {guardando ? 'Guardando...' : 'Confirmar Registro'}
               </button>

@@ -24,15 +24,18 @@ INSERT INTO usuario (id, nombre_completo, rol) VALUES
 (7, 'Mariana López',      'Visitante')
 ON CONFLICT (id) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol;
 
--- 3. POBLAR TABLA 'tarjeta' (UIDs compatibles con MFRC522 en Wokwi / ESP32)
-INSERT INTO tarjeta (codigo_rfid, usuario_id) VALUES
-('01020304', 1), -- Selwin Rivadineira (Llave Maestra Global)
-('A1B2C3D4', 2), -- Andrés Chávez (Llave Maestra Firmware)
-('73A2B19F', 3), -- Lukas Quiroga (Operador BD)
-('4E5F6A7B', 4), -- Thomas Mamani (Integrador Node-RED)
-('C8D9E0F1', 5), -- Josermando Cayo (Admin VPS Cloud)
-('11223344', 6)  -- Carlos Morales (Pase Guardia)
-ON CONFLICT (codigo_rfid) DO NOTHING;
+-- 3. POBLAR TABLA 'tarjeta' (UIDs con asignación de zona física y llaves maestras)
+-- Asegurar que la columna area_id exista
+ALTER TABLE tarjeta ADD COLUMN IF NOT EXISTS area_id integer REFERENCES area(id) ON DELETE SET NULL;
+
+INSERT INTO tarjeta (codigo_rfid, usuario_id, area_id, es_llave_maestra, esta_activa) VALUES
+('01020304', 1, NULL, true,  true), -- Selwin Rivadineira (Llave Maestra Global)
+('A1B2C3D4', 2, NULL, true,  true), -- Andrés Chávez (Llave Maestra Firmware)
+('73A2B19F', 3, 3,    false, true), -- Lukas Quiroga (Zona Laboratorio - Este)
+('4E5F6A7B', 4, 2,    false, true), -- Thomas Mamani (Zona Datacenter - Sur)
+('C8D9E0F1', 5, 4,    false, true), -- Josermando Cayo (Zona Almacén - Oeste)
+('11223344', 6, 1,    false, true)  -- Carlos Morales (Zona Acceso Principal - Norte)
+ON CONFLICT (codigo_rfid) DO UPDATE SET area_id = EXCLUDED.area_id, es_llave_maestra = EXCLUDED.es_llave_maestra;
 
 -- 4. POBLAR TABLA 'permiso' (Matriz de acceso por área)
 INSERT INTO permiso (usuario_id, area_id) VALUES
@@ -74,9 +77,13 @@ CREATE POLICY "Lectura publica usuario" ON usuario FOR SELECT USING (true);
 
 ALTER TABLE tarjeta ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Lectura publica tarjeta" ON tarjeta FOR SELECT USING (true);
+CREATE POLICY "Insercion publica tarjeta" ON tarjeta FOR INSERT WITH CHECK (true);
+CREATE POLICY "Actualizacion publica tarjeta" ON tarjeta FOR UPDATE USING (true) WITH CHECK (true);
 
 ALTER TABLE permiso ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Lectura publica permiso" ON permiso FOR SELECT USING (true);
+CREATE POLICY "Insercion publica permiso" ON permiso FOR INSERT WITH CHECK (true);
+CREATE POLICY "Actualizacion publica permiso" ON permiso FOR UPDATE USING (true) WITH CHECK (true);
 
 -- 7. HABILITAR TIEMPO REAL (REALTIME) PARA HISTORIAL DE ACCESOS
 ALTER PUBLICATION supabase_realtime ADD TABLE historial_acceso;

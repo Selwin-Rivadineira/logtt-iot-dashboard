@@ -1,6 +1,7 @@
 /**
  * Servicio de Validación y Registro de Tarjetas RFID
  * LOGTT IoT Dashboard
+ * Asignación por Zona / Área física
  */
 
 /**
@@ -36,10 +37,20 @@ export function validarFormatoUID(uid) {
 }
 
 /**
- * Registra una nueva tarjeta en el sistema.
- * Valida formato y rechaza duplicados con código 409.
+ * Registra una nueva tarjeta en el sistema vinculada a una o varias ZONAS (Áreas).
+ * Valida formato, rechaza duplicados con código 409 y asocia la zona en 'tarjeta' y 'permiso'.
  */
-export async function registrarTarjeta(client, { codigoRfid, usuarioId, esLlaveMaestra = false, estaActiva = true }) {
+export async function registrarTarjeta(
+  client,
+  {
+    codigoRfid,
+    usuarioId,
+    areaId = null,
+    zonasIds = [],
+    esLlaveMaestra = false,
+    estaActiva = true,
+  }
+) {
   if (!client) throw new Error('Cliente de base de datos no disponible.');
 
   const validacion = validarFormatoUID(codigoRfid);
@@ -52,6 +63,25 @@ export async function registrarTarjeta(client, { codigoRfid, usuarioId, esLlaveM
 
   if (!usuarioId) {
     const err = new Error('Debe seleccionar o asignar un usuario titular para la tarjeta.');
+    err.status = 400;
+    throw err;
+  }
+
+  // Normalizar lista de zonas seleccionadas
+  let zonasNormalizadas = Array.isArray(zonasIds)
+    ? zonasIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id) && id > 0)
+    : [];
+
+  if (areaId !== null && areaId !== undefined && areaId !== '') {
+    const parsedArea = parseInt(areaId, 10);
+    if (!isNaN(parsedArea) && parsedArea > 0 && !zonasNormalizadas.includes(parsedArea)) {
+      zonasNormalizadas.unshift(parsedArea);
+    }
+  }
+
+  // Si no es llave maestra global, debe especificarse al menos una zona autorizada
+  if (!esLlaveMaestra && zonasNormalizadas.length === 0) {
+    const err = new Error('Debe seleccionar al menos una zona o punto de acceso para la tarjeta.');
     err.status = 400;
     throw err;
   }
@@ -73,28 +103,85 @@ export async function registrarTarjeta(client, { codigoRfid, usuarioId, esLlaveM
     throw err;
   }
 
-  // 2. Insertar en la tabla 'tarjeta'
-  const { data: nuevaTarjeta, error: errorInsert } = await client
+  const primaryAreaId = zonasNormalizadas.length > 0 ? zonasNormalizadas[0] : null;
+
+  // 2. Insertar en la tabla 'tarjeta' (incluyendo area_id si está disponible)
+  const payloadTarjeta = {
+    codigo_rfid: uidFinal,
+    usuario_id: parseInt(usuarioId, 10),
+    es_llave_maestra: Boolean(esLlaveMaestra),
+    esta_activa: Boolean(estaActiva),
+  };
+
+  if (primaryAreaId !== null) {
+    payloadTarjeta.area_id = primaryAreaId;
+  }
+
+  let nuevaTarjeta;
+  const { data: insertResult, error: errorInsert } = await client
     .from('tarjeta')
-    .insert([
-      {
-        codigo_rfid: uidFinal,
-        usuario_id: parseInt(usuarioId, 10),
-        es_llave_maestra: Boolean(esLlaveMaestra),
-        esta_activa: Boolean(estaActiva),
-      },
-    ])
+    .insert([payloadTarjeta])
     .select()
     .single();
 
   if (errorInsert) {
-    if (errorInsert.code === '23505') {
+    // Si la columna area_id aún no ha sido agregada en Supabase, reintentar sin area_id
+    if (errorInsert.message && errorInsert.message.includes('area_id')) {
+      delete payloadTarjeta.area_id;
+      const { data: fallbackResult, error: fallbackError } = await client
+        .from('tarjeta')
+        .insert([payloadTarjeta])
+        .select()
+        .single();
+
+      if (fallbackError) {
+        if (fallbackError.code === '23505') {
+          const err = new Error(`El código RFID ${uidFinal} ya existe en el sistema (conflicto de clave única).`);
+          err.status = 409;
+          throw err;
+        }
+        throw new Error(`Error al guardar la tarjeta: ${fallbackError.message}`);
+      }
+      nuevaTarjeta = fallbackResult;
+    } else if (errorInsert.code === '23505') {
       const err = new Error(`El código RFID ${uidFinal} ya existe en el sistema (conflicto de clave única).`);
       err.status = 409;
       throw err;
+    } else {
+      throw new Error(`Error al guardar la tarjeta: ${errorInsert.message}`);
     }
-    throw new Error(`Error al guardar la tarjeta: ${errorInsert.message}`);
+  } else {
+    nuevaTarjeta = insertResult;
   }
 
-  return nuevaTarjeta;
+  // 3. Sincronizar permisos en la tabla 'permiso' para las zonas seleccionadas
+  if (zonasNormalizadas.length > 0) {
+    try {
+      const { data: existingPermisos } = await client
+        .from('permiso')
+        .select('area_id')
+        .eq('usuario_id', parseInt(usuarioId, 10));
+
+      const existingSet = new Set((existingPermisos || []).map((p) => p.area_id));
+      const permisosParaInsertar = zonasNormalizadas
+        .filter((aid) => !existingSet.has(aid))
+        .map((aid) => ({
+          usuario_id: parseInt(usuarioId, 10),
+          area_id: aid,
+          esta_activo: true,
+        }));
+
+      if (permisosParaInsertar.length > 0) {
+        await client.from('permiso').insert(permisosParaInsertar);
+      }
+    } catch (errPermiso) {
+      console.warn('[LOGTT] No se pudo sincronizar permisos en tabla permiso:', errPermiso.message);
+    }
+  }
+
+  return {
+    ...nuevaTarjeta,
+    area_id: nuevaTarjeta?.area_id ?? primaryAreaId,
+    zonas: zonasNormalizadas,
+  };
 }

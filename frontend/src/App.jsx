@@ -18,6 +18,7 @@ export default function App() {
   // Estado del modal de registro de tarjeta
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [cardModalInitialUid, setCardModalInitialUid] = useState('');
+  const [cardModalInitialAreaId, setCardModalInitialAreaId] = useState('');
 
   // Consumo centralizado de datos y sincronización periódica/realtime
   const { data, loading, errors, queryLatency, checked, refresh } = useDashboardData(true);
@@ -25,8 +26,9 @@ export default function App() {
   const hasErrors = Object.keys(errors).length > 0;
 
   // Abrir modal de tarjeta con parámetros
-  const handleOpenCardModal = (uid = '') => {
+  const handleOpenCardModal = (uid = '', areaId = '') => {
     setCardModalInitialUid(uid);
+    setCardModalInitialAreaId(areaId ? String(areaId) : '');
     setIsCardModalOpen(true);
   };
 
@@ -125,7 +127,7 @@ export default function App() {
                   loading={loading}
                   checked={checked}
                   errors={errors}
-                  onRegisterUnknownUid={(uid) => handleOpenCardModal(uid)}
+                  onRegisterUnknownUid={(uid, areaId) => handleOpenCardModal(uid, areaId)}
                 />
               )}
 
@@ -134,6 +136,7 @@ export default function App() {
                   usuarios={usuarios}
                   tarjetas={tarjetas}
                   permisos={permisos}
+                  areas={areas}
                   getAreaObj={getAreaObj}
                   onOpenRegisterModal={() => handleOpenCardModal()}
                 />
@@ -149,7 +152,9 @@ export default function App() {
               refresh();
             }}
             initialUid={cardModalInitialUid}
+            initialAreaId={cardModalInitialAreaId}
             usuarios={usuarios}
+            areas={areas}
           />
         </div>
     </div>

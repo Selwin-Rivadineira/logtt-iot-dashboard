@@ -7,6 +7,7 @@ export default function UsersTab({
   usuarios = [],
   tarjetas = [],
   permisos = [],
+  areas = [],
   getAreaObj,
   onOpenRegisterModal,
 }) {
@@ -14,10 +15,10 @@ export default function UsersTab({
     <div className="tab-usuarios-view">
       <div className="section-top-header">
         <div>
-          <span className="section-badge-tag">Control de Identidades</span>
-          <h2>Usuarios, Llaves Maestras y Permisos</h2>
+          <span className="section-badge-tag">Control de Identidades & Accesos</span>
+          <h2>Usuarios, Tarjetas por Zona y Permisos</h2>
           <p className="section-desc">
-            Entidades registradas y permisos de acceso por punto de control.
+            Credenciales de acceso vinculadas por zona física (control perimetral no restringido por rol).
           </p>
         </div>
       </div>
@@ -26,6 +27,9 @@ export default function UsersTab({
       <CardsTable
         tarjetas={tarjetas}
         usuarios={usuarios}
+        areas={areas}
+        permisos={permisos}
+        getAreaObj={getAreaObj}
         onOpenRegisterModal={onOpenRegisterModal}
       />
       <PermissionsTable permisos={permisos} usuarios={usuarios} tarjetas={tarjetas} getAreaObj={getAreaObj} />

@@ -51,7 +51,7 @@ export default function HistoryTable({
                           type="button"
                           className="btn-register-card-inline"
                           title={`Registrar UID ${row.codigo_rfid_leido}`}
-                          onClick={() => onRegisterUnknownUid(row.codigo_rfid_leido)}
+                          onClick={() => onRegisterUnknownUid(row.codigo_rfid_leido, row.area_id)}
                         >
                           + Registrar tarjeta
                         </button>

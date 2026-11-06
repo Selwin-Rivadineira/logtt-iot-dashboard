@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '../services/supabaseClient';
 import { createDashboardSync, emptyData } from '../services/dashboardSync';
 
@@ -39,5 +39,6 @@ export function useDashboardData(enabled) {
     };
   }, [enabled]);
 
-  return { ...state, refresh: () => syncRef.current?.refresh() };
+  const refresh = useCallback(() => syncRef.current?.refresh(), []);
+  return { ...state, refresh };
 }

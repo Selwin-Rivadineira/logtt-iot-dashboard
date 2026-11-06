@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboardData } from './hooks/useDashboardData';
 import pusher from './services/pusher';
-import LoginView from './components/auth/LoginView';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import DashboardTab from './components/dashboard/DashboardTab';
@@ -13,7 +12,6 @@ import './styles/App.css';
 
 export default function App() {
   // Estado de navegación
-  const [view, setView] = useState('login'); // 'login' | 'panel'
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'puertas' | 'historial' | 'usuarios'
   const [isWireframe, setIsWireframe] = useState(false);
 
@@ -22,7 +20,7 @@ export default function App() {
   const [cardModalInitialUid, setCardModalInitialUid] = useState('');
 
   // Consumo centralizado de datos y sincronización periódica/realtime
-  const { data, loading, errors, queryLatency, checked, refresh } = useDashboardData(view === 'panel');
+  const { data, loading, errors, queryLatency, checked, refresh } = useDashboardData(true);
   const { area: areas, historial_acceso: historial, usuario: usuarios, tarjeta: tarjetas, permiso: permisos } = data;
   const hasErrors = Object.keys(errors).length > 0;
 
@@ -41,8 +39,6 @@ export default function App() {
 
   // Suscripción a eventos Pusher para IoT en tiempo real (Node-RED: rfid-channel -> rfid-read)
   useEffect(() => {
-    if (view !== 'panel') return;
-
     const unsubscribePusher = pusher.subscribeToRFID((payload) => {
       try {
         console.log('[LOGTT/Pusher] Evento RFID recibido desde Node-RED:', payload);
@@ -56,7 +52,7 @@ export default function App() {
     return () => {
       unsubscribePusher();
     };
-  }, [view, refresh]);
+  }, [refresh]);
 
   // Modo Wireframe
   const toggleWireframe = () => {
@@ -81,19 +77,11 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* VISTA 1: INICIO DE SESIÓN */}
-      {view === 'login' && (
-        <LoginView onLoginSuccess={() => setView('panel')} />
-      )}
-
-      {/* VISTA 2: PANEL DE CONTROL Y AUDITORÍA */}
-      {view === 'panel' && (
         <div className="panel-wrapper">
           <Header
             areasCount={areas.length}
             isWireframe={isWireframe}
             onToggleWireframe={toggleWireframe}
-            onLogout={() => setView('login')}
           />
 
           <div className="panel-body-layout">
@@ -164,7 +152,6 @@ export default function App() {
             usuarios={usuarios}
           />
         </div>
-      )}
     </div>
   );
 }

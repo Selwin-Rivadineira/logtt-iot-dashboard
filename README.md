@@ -34,7 +34,6 @@ Desarrollado para la entrega de Sprint:
 │   ├── public/                      # Recursos estáticos
 │   ├── src/
 │   │   ├── components/              # Componentes modulares
-│   │   │   ├── auth/                # Login y Registro (LoginView)
 │   │   │   ├── layout/              # Header y Sidebar
 │   │   │   ├── dashboard/           # KPIs, listado rápido y tabla reciente
 │   │   │   ├── doors/               # Matriz de puertas y actuadores virtuales
@@ -116,7 +115,7 @@ Las cinco tablas se vuelven a consultar cada 2 segundos y al recibir cambios de 
 1. Ejecuta `npm run check:supabase` para ver el proyecto y cuántas filas permite leer la clave de `.env`. El comando no escribe en la base ni imprime la clave.
 2. Comprueba que el identificador del proyecto coincida con el que ves en Supabase. Cambia juntos `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, y reinicia Vite si editas `.env`.
 3. Ejecuta `supabase/diagnostico_lectura.sql` en el SQL Editor de ese proyecto para comparar filas existentes, privilegios, políticas RLS y filas visibles para `anon`.
-4. Si el editor ve filas y `anon` no, el acceso de lectura está restringido por las políticas. El formulario actual de entrar/registrarse solo abre el panel: **no crea cuentas ni inicia sesiones de Supabase Auth**. Por eso las consultas usan el rol `anon`. Una política para `authenticated` no habilita este panel por sí sola.
+4. Si el editor ve filas y `anon` no, el acceso de lectura está restringido por las políticas. El panel se abre sin inicio de sesión y consulta con el rol `anon`. Una política para `authenticated` no habilita este panel por sí sola.
 5. Antes de cambiar políticas, define quién debe acceder: para un panel privado hay que integrar Supabase Auth y políticas de lectura para los operadores autorizados. Permitir `SELECT` a `anon` haría públicos los datos accesibles a esa clave. No se cambian esas políticas automáticamente ni se usa una clave `service_role` en el frontend.
 
 Verificación realizada el 30/10/2026: la clave publicable respondió HTTP 200 y cero filas visibles. Al comparar desde Node con la clave secreta del mismo proyecto se leyeron 23 accesos, 4 áreas, 2 usuarios, 2 tarjetas y 2 permisos. Los registros existen; el acceso de la conexión pública está restringido. La clave secreta se conserva únicamente en `.env` como `SUPABASE_SECRET_KEY`, sin prefijo `VITE_`, y el frontend usa la clave publicable. El inicio y la compilación de Vite rechazan claves secretas en variables `VITE_`. No se han cambiado políticas RLS ni agregado un backend que use la clave secreta.
@@ -133,3 +132,7 @@ npm run check:supabase
 ```
 
 Las pruebas de sincronización usan datos simulados: verifican inserciones, cambios, eliminación de la última fila, paginación, errores, recuperación y limpieza de suscripciones sin modificar el historial real.
+
+## Permisos de las tarjetas reales
+
+La tarjeta `5B749C0B` pertenece al usuario 1 y tiene permisos para norte y sur; `E3847DAB` pertenece al usuario 2 y tiene permisos para este y oeste. La tarjeta `B3B76BA8` es la llave maestra. Los permisos se asignan por usuario y área en la tabla `permiso`. El controlador de puertas (Node-RED/firmware) es externo a este repositorio y debe consultar esos permisos y aplicar la excepción de llave maestra; el panel solo muestra los datos.

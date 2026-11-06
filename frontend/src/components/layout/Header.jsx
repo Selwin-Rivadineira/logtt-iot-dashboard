@@ -4,7 +4,6 @@ export default function Header({
   areasCount = 0,
   isWireframe = false,
   onToggleWireframe,
-  onLogout,
 }) {
   return (
     <header className="panel-topbar wireframe-target" data-figma-label="Frame: Topbar_Header">
@@ -29,10 +28,6 @@ export default function Header({
           <span>{areasCount} áreas registradas</span>
         </div>
 
-        <span className="user-chip">Selwin Rivadineira</span>
-        <button className="btn-logout" onClick={onLogout}>
-          Cerrar Sesión
-        </button>
       </div>
     </header>
   );

@@ -18,16 +18,15 @@ export default function HistoryTab({
   // Exportar auditoría a CSV
   const exportarCSV = () => {
     if (historial.length === 0) return alert('No existen registros para exportar.');
-    let csv =
-      'ID,Fecha_Hora,Area_ID,Codigo_RFID_Leido,Tarjeta_Codigo,Acceso_Concedido,Motivo,Sincronizado_Offline\r\n';
-    historial.forEach((r) => {
-      csv += `"${r.id}","${r.fecha_hora}","${r.area_id}","${r.codigo_rfid_leido}","${r.tarjeta_codigo || ''}","${r.acceso_concedido}","${r.motivo || ''}"\r\n`;
-    });
+    const columns = ['id', 'fecha_hora', 'area_id', 'codigo_rfid_leido', 'tarjeta_codigo', 'acceso_concedido', 'motivo', 'sincronizado_offline'];
+    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const csv = [columns.join(','), ...historial.map((row) => columns.map((key) => escapeCsv(row[key])).join(','))].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `auditoria_historial_${Date.now()}.csv`;
     link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   // Filtrado de registros
@@ -55,7 +54,7 @@ export default function HistoryTab({
           <span className="section-badge-tag">Auditoría de Accesos</span>
           <h2>Historial Completo de Registros</h2>
           <p className="section-desc">
-            Auditoría detallada de todos los eventos registrados en el sistema.
+            Cada fila corresponde a un registro guardado. Los permisos actuales pueden ser diferentes de los vigentes cuando ocurrió el evento.
           </p>
         </div>
         <div>

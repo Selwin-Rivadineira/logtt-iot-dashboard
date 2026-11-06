@@ -28,7 +28,7 @@ export default function UsersTab({
         usuarios={usuarios}
         onOpenRegisterModal={onOpenRegisterModal}
       />
-      <PermissionsTable permisos={permisos} usuarios={usuarios} getAreaObj={getAreaObj} />
+      <PermissionsTable permisos={permisos} usuarios={usuarios} tarjetas={tarjetas} getAreaObj={getAreaObj} />
     </div>
   );
 }

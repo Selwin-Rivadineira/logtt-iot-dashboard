@@ -9,7 +9,6 @@ export default function HistoryTab({
   loading = false,
   checked = false,
   errors = {},
-  onRegisterUnknownUid,
 }) {
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroArea, setFiltroArea] = useState('todas');
@@ -81,7 +80,6 @@ export default function HistoryTab({
         loading={loading}
         checked={checked}
         errors={errors}
-        onRegisterUnknownUid={onRegisterUnknownUid}
       />
     </div>
   );

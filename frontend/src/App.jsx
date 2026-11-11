@@ -15,20 +15,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'puertas' | 'historial' | 'usuarios'
   const [isWireframe, setIsWireframe] = useState(false);
 
-  // Estado del modal de registro de tarjeta
+  // Estado del modal de gestión de tarjetas
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
-  const [cardModalInitialUid, setCardModalInitialUid] = useState('');
-  const [cardModalInitialAreaId, setCardModalInitialAreaId] = useState('');
+  const [cardModalTarjeta, setCardModalTarjeta] = useState(null);
 
   // Consumo centralizado de datos y sincronización periódica/realtime
   const { data, loading, errors, queryLatency, checked, refresh } = useDashboardData(true);
   const { area: areas, historial_acceso: historial, usuario: usuarios, tarjeta: tarjetas, permiso: permisos } = data;
   const hasErrors = Object.keys(errors).length > 0;
 
-  // Abrir modal de tarjeta con parámetros
-  const handleOpenCardModal = (uid = '', areaId = '') => {
-    setCardModalInitialUid(uid);
-    setCardModalInitialAreaId(areaId ? String(areaId) : '');
+  // Abrir modal de tarjeta para nueva tarjeta o editar existente
+  const handleOpenCardModal = (cardToEdit = null) => {
+    setCardModalTarjeta(cardToEdit || null);
     setIsCardModalOpen(true);
   };
 
@@ -127,7 +125,6 @@ export default function App() {
                   loading={loading}
                   checked={checked}
                   errors={errors}
-                  onRegisterUnknownUid={(uid, areaId) => handleOpenCardModal(uid, areaId)}
                 />
               )}
 
@@ -138,23 +135,27 @@ export default function App() {
                   permisos={permisos}
                   areas={areas}
                   getAreaObj={getAreaObj}
-                  onOpenRegisterModal={() => handleOpenCardModal()}
+                  onOpenRegisterModal={(card) => handleOpenCardModal(card)}
+                  onRefresh={() => refresh()}
                 />
               )}
             </main>
           </div>
 
-          {/* Modal de Registro Manual de Tarjetas */}
+          {/* Modal de Gestión de Tarjetas */}
           <CardRegisterModal
             isOpen={isCardModalOpen}
-            onClose={() => setIsCardModalOpen(false)}
+            onClose={() => {
+              setIsCardModalOpen(false);
+              setCardModalTarjeta(null);
+            }}
             onSuccess={() => {
               refresh();
             }}
-            initialUid={cardModalInitialUid}
-            initialAreaId={cardModalInitialAreaId}
             usuarios={usuarios}
             areas={areas}
+            permisos={permisos}
+            tarjetaAEditar={cardModalTarjeta}
           />
         </div>
     </div>

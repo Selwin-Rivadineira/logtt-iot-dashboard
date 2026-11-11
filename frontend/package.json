@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/services/dashboardSync.test.js src/services/supabaseKey.test.js src/services/enrolamientoService.test.js",
+    "test": "node --test src/services/dashboardSync.test.js src/services/supabaseKey.test.js src/services/tarjetasService.test.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

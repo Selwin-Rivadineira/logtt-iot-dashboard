@@ -9,6 +9,8 @@ DROP POLICY IF EXISTS "Lectura publica historial_acceso" ON historial_acceso;
 DROP POLICY IF EXISTS "Insercion publica historial_acceso" ON historial_acceso;
 DROP POLICY IF EXISTS "Lectura publica area" ON area;
 DROP POLICY IF EXISTS "Lectura publica usuario" ON usuario;
+DROP POLICY IF EXISTS "Insercion publica usuario" ON usuario;
+DROP POLICY IF EXISTS "Actualizacion publica usuario" ON usuario;
 DROP POLICY IF EXISTS "Lectura publica tarjeta" ON tarjeta;
 DROP POLICY IF EXISTS "Lectura publica permiso" ON permiso;
 
@@ -31,6 +33,12 @@ CREATE POLICY "Lectura publica area"
 
 CREATE POLICY "Lectura publica usuario"
   ON usuario FOR SELECT TO anon USING (true);
+
+CREATE POLICY "Insercion publica usuario"
+  ON usuario FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "Actualizacion publica usuario"
+  ON usuario FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 CREATE POLICY "Lectura publica tarjeta"
   ON tarjeta FOR SELECT TO anon USING (true);

@@ -1061,7 +1061,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
 }
 
 /* ==================================================== */
-/* MODAL: REGISTRO DE TARJETAS Y ENROLAMIENTO           */
+/* MODAL: GESTIÓN DE TARJETAS RFID                      */
 /* ==================================================== */
 .modal-backdrop {
   position: fixed;

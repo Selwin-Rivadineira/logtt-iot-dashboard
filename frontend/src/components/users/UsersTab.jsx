@@ -10,6 +10,7 @@ export default function UsersTab({
   areas = [],
   getAreaObj,
   onOpenRegisterModal,
+  onRefresh,
 }) {
   return (
     <div className="tab-usuarios-view">
@@ -31,6 +32,7 @@ export default function UsersTab({
         permisos={permisos}
         getAreaObj={getAreaObj}
         onOpenRegisterModal={onOpenRegisterModal}
+        onRefresh={onRefresh}
       />
       <PermissionsTable permisos={permisos} usuarios={usuarios} tarjetas={tarjetas} getAreaObj={getAreaObj} />
     </div>

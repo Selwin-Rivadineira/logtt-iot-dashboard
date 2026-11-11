@@ -302,7 +302,19 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
 
 export async function eliminarTarjeta(client, codigoRfid) {
   if (!client || !codigoRfid) throw new Error('Cliente o código RFID faltante.');
-  const { error } = await client.from('tarjeta').delete().eq('codigo_rfid', codigoRfid);
-  if (error) throw new Error(`Error al eliminar: ${error.message}`);
+  
+  const { error } = await client
+    .from('tarjeta')
+    .delete()
+    .eq('codigo_rfid', codigoRfid);
+    
+  if (error) {
+    // 23503 es el código de restricción de llave foránea (ya existe en el historial)
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar porque ya tiene registros en el historial de accesos. Por seguridad, edítala y desmarca "Tarjeta Activa".');
+    }
+    throw new Error(`Error al eliminar: ${error.message}`);
+  }
+  
   return true;
 }

@@ -185,3 +185,34 @@ export async function registrarTarjeta(
     zonas: zonasNormalizadas,
   };
 }
+// NUEVAS FUNCIONES PARA COMPLETAR EL CRUD
+export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
+  if (!client || !codigoRfid) throw new Error('Cliente o código RFID faltante.');
+  
+  const payloadUpdate = {
+    usuario_id: parseInt(datosActualizados.usuarioId, 10),
+    es_llave_maestra: Boolean(datosActualizados.esLlaveMaestra),
+    esta_activa: Boolean(datosActualizados.estaActiva),
+  };
+
+  if (datosActualizados.zonasIds && datosActualizados.zonasIds.length > 0) {
+    payloadUpdate.area_id = datosActualizados.zonasIds[0];
+  }
+
+  const { data, error } = await client
+    .from('tarjeta')
+    .update(payloadUpdate)
+    .eq('codigo_rfid', codigoRfid)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Error al actualizar: ${error.message}`);
+  return data;
+}
+
+export async function eliminarTarjeta(client, codigoRfid) {
+  if (!client || !codigoRfid) throw new Error('Cliente o código RFID faltante.');
+  const { error } = await client.from('tarjeta').delete().eq('codigo_rfid', codigoRfid);
+  if (error) throw new Error(`Error al eliminar: ${error.message}`);
+  return true;
+}

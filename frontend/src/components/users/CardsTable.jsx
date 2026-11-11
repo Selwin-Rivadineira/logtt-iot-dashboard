@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { eliminarTarjeta } from '../../services/enrolamientoService'; 
+import { eliminarTarjeta } from '../../services/tarjetasService'; 
 import { getSupabaseClient } from '../../services/supabaseClient'; 
 
 export default function CardsTable({

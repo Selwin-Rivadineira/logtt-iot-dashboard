@@ -3,9 +3,10 @@ import { getSupabaseClient } from '../../services/supabaseClient';
 import {
   normalizarUID,
   validarFormatoUID,
+  buscarUsuarioPorNombre,
   registrarTarjeta,
   actualizarTarjeta
-} from '../../services/enrolamientoService';
+} from '../../services/tarjetasService';
 
 export default function CardRegisterModal({
   isOpen,
@@ -15,12 +16,13 @@ export default function CardRegisterModal({
   initialAreaId = '',
   usuarios = [],
   areas = [],
+  permisos = [],
   tarjetaAEditar = null
 }) {
   const isEditing = !!tarjetaAEditar; 
   const [uid, setUid] = useState(initialUid);
   const [zonasIds, setZonasIds] = useState([]);
-  const [usuarioId, setUsuarioId] = useState('');
+  const [nombreUsuario, setNombreUsuario] = useState('');
   const [esLlaveMaestra, setEsLlaveMaestra] = useState(false);
   const [estaActiva, setEstaActiva] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -30,16 +32,29 @@ export default function CardRegisterModal({
   const prevIsOpenRef = useRef(false);
 
   // Inicializar o restablecer al abrir
-  // Inicializar o restablecer al abrir
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       if (isEditing) {
         // SI EDITAMOS
         setUid(tarjetaAEditar.codigo_rfid || '');
-        setUsuarioId(String(tarjetaAEditar.usuario_id || ''));
+        const titular = usuarios.find((u) => u.id === tarjetaAEditar.usuario_id);
+        setNombreUsuario(titular?.nombre_completo || (tarjetaAEditar.usuario_id ? `Usuario #${tarjetaAEditar.usuario_id}` : ''));
         setEsLlaveMaestra(tarjetaAEditar.es_llave_maestra || false);
         setEstaActiva(tarjetaAEditar.esta_activa !== undefined ? tarjetaAEditar.esta_activa : true);
-        setZonasIds(tarjetaAEditar.area_id ? [tarjetaAEditar.area_id] : []);
+        
+        // Obtener permisos del usuario desde la tabla 'permiso'
+        const titularId = tarjetaAEditar.usuario_id;
+        const permisosUsuario = permisos
+          .filter((p) => p.usuario_id === titularId && p.esta_activo !== false)
+          .map((p) => p.area_id);
+
+        if (permisosUsuario.length > 0) {
+          setZonasIds(permisosUsuario);
+        } else if (tarjetaAEditar.area_id) {
+          setZonasIds([tarjetaAEditar.area_id]);
+        } else {
+          setZonasIds([]);
+        }
       } else {
         // SI CREAMOS
         setUid(initialUid ? normalizarUID(initialUid) : '');
@@ -49,7 +64,7 @@ export default function CardRegisterModal({
           ? areas[0].id
           : null;
         setZonasIds(defaultArea ? [defaultArea] : []);
-        setUsuarioId(usuarios[0]?.id ? String(usuarios[0].id) : '');
+        setNombreUsuario('');
         setEsLlaveMaestra(false);
         setEstaActiva(true);
       }
@@ -57,7 +72,7 @@ export default function CardRegisterModal({
       setSuccessMsg('');
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialUid, initialAreaId, usuarios, areas, tarjetaAEditar, isEditing]);
+  }, [isOpen, initialUid, initialAreaId, usuarios, areas, permisos, tarjetaAEditar, isEditing]);
 
   // Alternar selección de una zona específica
   const toggleZona = (id) => {
@@ -101,20 +116,99 @@ export default function CardRegisterModal({
       return;
     }
 
-    if (!usuarioId) {
-      setErrorMsg('Por favor seleccione un titular para la tarjeta.');
+    const nombreTrim = (nombreUsuario || '').trim();
+    if (!nombreTrim) {
+      setErrorMsg('Por favor ingrese el nombre del titular para la tarjeta.');
       return;
     }
 
     setGuardando(true);
     const client = getSupabaseClient();
     try {
-     const finalZonas = esLlaveMaestra ? areas.map((a) => a.id) : zonasIds;
+      // 1. Resolver usuario titular (usando coincidencia flexible: exacta, parcial o por palabras)
+      let resolvedUsuarioId = null;
+
+      const usuarioLocal = buscarUsuarioPorNombre(usuarios, nombreTrim);
+      if (usuarioLocal) {
+        resolvedUsuarioId = usuarioLocal.id;
+      }
+
+      // 2. Si no se encontró en la lista local, buscar en Supabase
+      if (!resolvedUsuarioId && client) {
+        try {
+          const { data: usuarioRemoto } = await client
+            .from('usuario')
+            .select('id, nombre_completo')
+            .ilike('nombre_completo', `%${nombreTrim}%`)
+            .maybeSingle();
+
+          if (usuarioRemoto?.id) {
+            resolvedUsuarioId = usuarioRemoto.id;
+          } else {
+            // Intentar con la primera palabra (ej. "thomas")
+            const primerPalabra = nombreTrim.split(/\s+/)[0];
+            if (primerPalabra && primerPalabra.length >= 3) {
+              const { data: usuarioPorPrimerNombre } = await client
+                .from('usuario')
+                .select('id, nombre_completo')
+                .ilike('nombre_completo', `%${primerPalabra}%`)
+                .maybeSingle();
+              if (usuarioPorPrimerNombre?.id) {
+                resolvedUsuarioId = usuarioPorPrimerNombre.id;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[LOGTT] Error buscando usuario remoto:', e);
+        }
+      }
+
+      // 3. Si no existe aún y se requiere crear nuevo usuario:
+      if (!resolvedUsuarioId && client) {
+        try {
+          const { data: nuevoU, error: errInsertAuto } = await client
+            .from('usuario')
+            .insert([{ nombre_completo: nombreTrim, rol: 'Operador' }])
+            .select()
+            .single();
+
+          if (!errInsertAuto && nuevoU?.id) {
+            resolvedUsuarioId = nuevoU.id;
+          } else if (errInsertAuto?.message?.includes('violates row-level security policy')) {
+            throw new Error(
+              `La base de datos tiene restringida la creación de usuarios públicos (RLS). Para agregar titulares nuevos, ejecuta el script SQL de permisos en Supabase o selecciona un usuario existente (ej. Thomas Mamani, Lukas Quiroga).`
+            );
+          } else {
+            const maxId = usuarios.reduce((max, u) => Math.max(max, Number(u.id) || 0), 0);
+            const nextId = maxId + 1;
+            const { data: nuevoConId, error: errConId } = await client
+              .from('usuario')
+              .insert([{ id: nextId, nombre_completo: nombreTrim, rol: 'Operador' }])
+              .select()
+              .single();
+
+            if (errConId) {
+              if (errConId.message?.includes('violates row-level security policy')) {
+                throw new Error(
+                  `La base de datos tiene restringida la creación de usuarios públicos (RLS). Para agregar titulares nuevos, ejecuta el script SQL de permisos en Supabase o selecciona un usuario existente.`
+                );
+              }
+              throw errConId;
+            }
+            resolvedUsuarioId = nuevoConId?.id || nextId;
+          }
+        } catch (errCrear) {
+          console.warn('[LOGTT] Error registrando titular nuevo:', errCrear);
+          throw errCrear;
+        }
+      }
+
+      const finalZonas = esLlaveMaestra ? areas.map((a) => a.id) : zonasIds;
       const primaryAreaId = finalZonas[0] || null;
 
       if (isEditing) {
         await actualizarTarjeta(client, validacion.normalizado, {
-          usuarioId,
+          usuarioId: resolvedUsuarioId,
           zonasIds: finalZonas,
           esLlaveMaestra,
           estaActiva,
@@ -123,7 +217,7 @@ export default function CardRegisterModal({
       } else {
         await registrarTarjeta(client, {
           codigoRfid: validacion.normalizado,
-          usuarioId,
+          usuarioId: resolvedUsuarioId,
           areaId: primaryAreaId,
           zonasIds: finalZonas,
           esLlaveMaestra,
@@ -224,21 +318,22 @@ export default function CardRegisterModal({
               </span>
             </div>
 
-            {/* Campo 3: Usuario Titular (sin rol) */}
+            {/* Campo 3: Nombre de Usuario */}
             <div className="form-group">
               <label>Nombre de Usuario:</label>
-              <select
-                value={usuarioId}
-                onChange={(e) => setUsuarioId(e.target.value)}
+              <input
+                type="text"
+                list="usuarios-list"
+                placeholder="Ej. Lukas Quiroga o nuevo titular"
+                value={nombreUsuario}
+                onChange={(e) => setNombreUsuario(e.target.value)}
                 required
-              >
-                <option value="">-- Seleccionar Titular --</option>
+              />
+              <datalist id="usuarios-list">
                 {usuarios.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nombre_completo}
-                  </option>
+                  <option key={u.id} value={u.nombre_completo} />
                 ))}
-              </select>
+              </datalist>
               <span className="field-hint">
                 Titular responsable de la credencial (la autorización depende de las zonas seleccionadas arriba).
               </span>
@@ -277,9 +372,9 @@ export default function CardRegisterModal({
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={guardando || !uid || !usuarioId || (!esLlaveMaestra && zonasIds.length === 0)}
+                disabled={guardando || !uid || !nombreUsuario.trim() || (!esLlaveMaestra && zonasIds.length === 0)}
               >
-                {guardando ? 'Guardando...' : 'Confirmar Registro'}
+                {guardando ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Confirmar Registro'}
               </button>
             </div>
           </form>

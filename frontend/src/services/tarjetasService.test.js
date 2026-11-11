@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   normalizarUID,
   validarFormatoUID,
+  buscarUsuarioPorNombre,
   registrarTarjeta,
-} from './enrolamientoService.js';
+  actualizarTarjeta,
+} from './tarjetasService.js';
 
 test('normalizarUID limpia caracteres no hexadecimales y convierte a mayúsculas', () => {
   assert.equal(normalizarUID('01:02:03:04'), '01020304');
@@ -212,4 +214,118 @@ test('registrarTarjeta exige seleccionar zona si no es llave maestra global', as
       return true;
     }
   );
+});
+
+test('buscarUsuarioPorNombre encuentra usuarios por coincidencia exacta, parcial o apellidos compuestos', () => {
+  const usuarios = [
+    { id: 1, nombre_completo: 'Selwin Rivadineira' },
+    { id: 2, nombre_completo: 'Andrés Chávez' },
+    { id: 3, nombre_completo: 'Lukas Quiroga' },
+    { id: 4, nombre_completo: 'Thomas Mamani' },
+    { id: 5, nombre_completo: 'Josermando Cayo' },
+  ];
+
+  // Coincidencia exacta insensible a mayúsculas
+  const matchExacto = buscarUsuarioPorNombre(usuarios, 'thomas mamani');
+  assert.equal(matchExacto?.id, 4);
+
+  // Coincidencia con nombre extendido (caso reportado por usuario: "thomas Mamani Condarco")
+  const matchExtendido = buscarUsuarioPorNombre(usuarios, 'thomas Mamani Condarco');
+  assert.equal(matchExtendido?.id, 4);
+
+  // Coincidencia por primer nombre o apellido
+  const matchPrimerNombre = buscarUsuarioPorNombre(usuarios, 'Lukas');
+  assert.equal(matchPrimerNombre?.id, 3);
+
+  const matchApellido = buscarUsuarioPorNombre(usuarios, 'Rivadineira');
+  assert.equal(matchApellido?.id, 1);
+
+  // Búsqueda por ID numérico
+  const matchId = buscarUsuarioPorNombre(usuarios, '#2');
+  assert.equal(matchId?.id, 2);
+
+  // Usuario inexistente devuelve null
+  const noExiste = buscarUsuarioPorNombre(usuarios, 'Usuario Inventado Totalmente');
+  assert.equal(noExiste, null);
+
+  // Entrada vacía
+  assert.equal(buscarUsuarioPorNombre(usuarios, ''), null);
+  assert.equal(buscarUsuarioPorNombre([], 'Thomas'), null);
+});
+
+test('actualizarTarjeta actualiza tarjeta y sincroniza permisos en tabla permiso', async () => {
+  let updatePayloads = [];
+  let permisosDB = [{ usuario_id: 2, area_id: 3 }];
+  let eliminados = [];
+
+  const fakeClient = {
+    from(tabla) {
+      if (tabla === 'tarjeta') {
+        return {
+          update(payload) {
+            updatePayloads.push(payload);
+            return {
+              eq(_campo, _valor) {
+                return {
+                  select() {
+                    return {
+                      async single() {
+                        return { data: { codigo_rfid: 'A1B2C3D4', ...payload }, error: null };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (tabla === 'permiso') {
+        return {
+          select() {
+            return {
+              eq(_campo, valor) {
+                return Promise.resolve({
+                  data: permisosDB.filter((p) => p.usuario_id === valor),
+                  error: null,
+                });
+              },
+            };
+          },
+          async insert(rows) {
+            permisosDB.push(...rows);
+            return { data: rows, error: null };
+          },
+          delete() {
+            return {
+              eq(_campo1, valor1) {
+                return {
+                  async eq(_campo2, valor2) {
+                    eliminados.push({ usuario_id: valor1, area_id: valor2 });
+                    permisosDB = permisosDB.filter((p) => !(p.usuario_id === valor1 && p.area_id === valor2));
+                    return { error: null };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      throw new Error(`Tabla ${tabla} no soportada`);
+    },
+  };
+
+  const resultado = await actualizarTarjeta(fakeClient, 'A1B2C3D4', {
+    usuarioId: 2,
+    esLlaveMaestra: false,
+    estaActiva: true,
+    zonasIds: [1, 2], // Queremos zonas 1 y 2 (tenía 3, así que 3 se debe eliminar e insertar 1 y 2)
+  });
+
+  assert.equal(resultado.codigo_rfid, 'A1B2C3D4');
+  assert.equal(resultado.usuario_id, 2);
+  assert.equal('area_id' in updatePayloads[0], false); // No fuerza area_id en tarjeta
+  assert.ok(permisosDB.some((p) => p.area_id === 1));
+  assert.ok(permisosDB.some((p) => p.area_id === 2));
+  assert.ok(eliminados.some((p) => p.area_id === 3));
 });

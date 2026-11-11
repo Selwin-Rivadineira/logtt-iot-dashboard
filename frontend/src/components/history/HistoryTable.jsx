@@ -7,7 +7,6 @@ export default function HistoryTable({
   loading = false,
   checked = false,
   errors = {},
-  onRegisterUnknownUid,
 }) {
   return (
     <div className="logs-container-box wireframe-target" data-figma-label="Table: Historial_Acceso">
@@ -44,19 +43,7 @@ export default function HistoryTable({
                   {row.tarjeta_codigo ? (
                     <code>{row.tarjeta_codigo}</code>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ color: '#888' }}>Sin Asignar</span>
-                      {onRegisterUnknownUid && row.codigo_rfid_leido && (
-                        <button
-                          type="button"
-                          className="btn-register-card-inline"
-                          title={`Registrar UID ${row.codigo_rfid_leido}`}
-                          onClick={() => onRegisterUnknownUid(row.codigo_rfid_leido, row.area_id)}
-                        >
-                          + Registrar tarjeta
-                        </button>
-                      )}
-                    </div>
+                    <span style={{ color: '#888' }}>Sin Asignar</span>
                   )}
                 </td>
                 <td>

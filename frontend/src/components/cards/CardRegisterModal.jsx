@@ -203,7 +203,7 @@ export default function CardRegisterModal({
 
             {/* Campo 3: Usuario Titular (sin rol) */}
             <div className="form-group">
-              <label>Usuario Titular:</label>
+              <label>Nombre de Usuario:</label>
               <select
                 value={usuarioId}
                 onChange={(e) => setUsuarioId(e.target.value)}

@@ -4,6 +4,7 @@ import {
   normalizarUID,
   validarFormatoUID,
   registrarTarjeta,
+  actualizarTarjeta
 } from '../../services/enrolamientoService';
 
 export default function CardRegisterModal({
@@ -14,7 +15,9 @@ export default function CardRegisterModal({
   initialAreaId = '',
   usuarios = [],
   areas = [],
+  tarjetaAEditar = null
 }) {
+  const isEditing = !!tarjetaAEditar; 
   const [uid, setUid] = useState(initialUid);
   const [zonasIds, setZonasIds] = useState([]);
   const [usuarioId, setUsuarioId] = useState('');
@@ -27,23 +30,34 @@ export default function CardRegisterModal({
   const prevIsOpenRef = useRef(false);
 
   // Inicializar o restablecer al abrir
+  // Inicializar o restablecer al abrir
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
-      setUid(initialUid ? normalizarUID(initialUid) : '');
-      const defaultArea = initialAreaId
-        ? parseInt(initialAreaId, 10)
-        : areas[0]?.id
-        ? areas[0].id
-        : null;
-      setZonasIds(defaultArea ? [defaultArea] : []);
-      setUsuarioId(usuarios[0]?.id ? String(usuarios[0].id) : '');
-      setEsLlaveMaestra(false);
-      setEstaActiva(true);
+      if (isEditing) {
+        // SI EDITAMOS
+        setUid(tarjetaAEditar.codigo_rfid || '');
+        setUsuarioId(String(tarjetaAEditar.usuario_id || ''));
+        setEsLlaveMaestra(tarjetaAEditar.es_llave_maestra || false);
+        setEstaActiva(tarjetaAEditar.esta_activa !== undefined ? tarjetaAEditar.esta_activa : true);
+        setZonasIds(tarjetaAEditar.area_id ? [tarjetaAEditar.area_id] : []);
+      } else {
+        // SI CREAMOS
+        setUid(initialUid ? normalizarUID(initialUid) : '');
+        const defaultArea = initialAreaId
+          ? parseInt(initialAreaId, 10)
+          : areas[0]?.id
+          ? areas[0].id
+          : null;
+        setZonasIds(defaultArea ? [defaultArea] : []);
+        setUsuarioId(usuarios[0]?.id ? String(usuarios[0].id) : '');
+        setEsLlaveMaestra(false);
+        setEstaActiva(true);
+      }
       setErrorMsg('');
       setSuccessMsg('');
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialUid, initialAreaId, usuarios, areas]);
+  }, [isOpen, initialUid, initialAreaId, usuarios, areas, tarjetaAEditar, isEditing]);
 
   // Alternar selección de una zona específica
   const toggleZona = (id) => {
@@ -95,19 +109,28 @@ export default function CardRegisterModal({
     setGuardando(true);
     const client = getSupabaseClient();
     try {
-      const finalZonas = esLlaveMaestra ? areas.map((a) => a.id) : zonasIds;
+     const finalZonas = esLlaveMaestra ? areas.map((a) => a.id) : zonasIds;
       const primaryAreaId = finalZonas[0] || null;
 
-      await registrarTarjeta(client, {
-        codigoRfid: validacion.normalizado,
-        usuarioId,
-        areaId: primaryAreaId,
-        zonasIds: finalZonas,
-        esLlaveMaestra,
-        estaActiva,
-      });
-
-      setSuccessMsg(`Tarjeta ${validacion.normalizado} registrada exitosamente por zona.`);
+      if (isEditing) {
+        await actualizarTarjeta(client, validacion.normalizado, {
+          usuarioId,
+          zonasIds: finalZonas,
+          esLlaveMaestra,
+          estaActiva,
+        });
+        setSuccessMsg(`Tarjeta ${validacion.normalizado} actualizada exitosamente.`);
+      } else {
+        await registrarTarjeta(client, {
+          codigoRfid: validacion.normalizado,
+          usuarioId,
+          areaId: primaryAreaId,
+          zonasIds: finalZonas,
+          esLlaveMaestra,
+          estaActiva,
+        });
+        setSuccessMsg(`Tarjeta ${validacion.normalizado} registrada exitosamente por zona.`);
+      }
       setTimeout(() => {
         onSuccess?.();
         onClose?.();
@@ -135,7 +158,7 @@ export default function CardRegisterModal({
         <div className="modal-header">
           <div>
             <span className="section-badge-tag">Gestión de Acceso</span>
-            <h2>Registrar Tarjeta RFID</h2>
+            <h2>{isEditing ? 'Editar Tarjeta RFID' : 'Registrar Tarjeta RFID'}</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose} aria-label="Cerrar modal">
             &times;

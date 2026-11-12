@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
-import { crearUsuario } from '../../services/tarjetasService';
+import React, { useState, useEffect, useRef } from 'react';
+import { crearUsuario, actualizarUsuario } from '../../services/tarjetasService';
 import { getSupabaseClient } from '../../services/supabaseClient';
 
-export default function UserRegisterModal({ isOpen, onClose, onRefresh }) {
+export default function UserRegisterModal({ isOpen, onClose, onRefresh, usuarioAEditar = null }) {
+  const isEditing = !!usuarioAEditar;
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [rol, setRol] = useState('Operador');
   const [estaActivo, setEstaActivo] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const prevIsOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      if (isEditing) {
+        setNombreCompleto(usuarioAEditar.nombre_completo || '');
+        setRol(usuarioAEditar.rol || 'Operador');
+        setEstaActivo(usuarioAEditar.esta_activo !== undefined ? usuarioAEditar.esta_activo : true);
+      } else {
+        setNombreCompleto('');
+        setRol('Operador');
+        setEstaActivo(true);
+      }
+      setErrorMsg('');
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, usuarioAEditar, isEditing]);
 
   if (!isOpen) return null;
 
@@ -24,11 +43,19 @@ export default function UserRegisterModal({ isOpen, onClose, onRefresh }) {
       setIsSubmitting(true);
       const supabase = getSupabaseClient();
       
-      await crearUsuario(supabase, {
-        nombre_completo: nombreCompleto.trim(),
-        rol: rol,
-        esta_activo: estaActivo
-      });
+      if (isEditing) {
+        await actualizarUsuario(supabase, usuarioAEditar.id, {
+          nombre_completo: nombreCompleto.trim(),
+          rol: rol,
+          esta_activo: estaActivo
+        });
+      } else {
+        await crearUsuario(supabase, {
+          nombre_completo: nombreCompleto.trim(),
+          rol: rol,
+          esta_activo: estaActivo
+        });
+      }
 
       if (onRefresh) onRefresh();
       handleClose();
@@ -72,7 +99,9 @@ export default function UserRegisterModal({ isOpen, onClose, onRefresh }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ff4b4b', letterSpacing: '0.5px' }}>GESTIÓN DE PERSONAL</span>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Registrar Nuevo Usuario</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>
+              {isEditing ? 'Editar Usuario' : 'Registrar Nuevo Usuario'}
+            </h2>
           </div>
           <button onClick={handleClose} style={{ background: '#ff4b4b', color: 'white', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             &times;
@@ -131,7 +160,7 @@ export default function UserRegisterModal({ isOpen, onClose, onRefresh }) {
                 Cancelar
               </button>
               <button type="submit" disabled={isSubmitting} style={{ padding: '10px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#ff4b4b', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
-                {isSubmitting ? 'Guardando...' : 'Guardar Usuario'}
+                {isSubmitting ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Guardar Usuario'}
               </button>
             </div>
           </form>

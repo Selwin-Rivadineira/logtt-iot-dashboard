@@ -1,9 +1,18 @@
 import React from 'react';
 
-export default function UsersTable({ usuarios = [] }) {
+export default function UsersTable({ usuarios = [], onOpenUserModal }) {
   return (
     <div className="logs-container-box mb-20 wireframe-target" data-figma-label="Table: Usuarios_Registrados">
-      <h3 style={{ fontSize: 15, marginBottom: 12 }}>Usuarios Registrados</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ fontSize: 15, margin: 0 }}>Usuarios Registrados</h3>
+        <button 
+          className="btn-primary" 
+          style={{ backgroundColor: '#ff4b4b', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+          onClick={onOpenUserModal}
+        >
+          + Nuevo Usuario
+        </button>
+      </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="logs-data-table">
           <thead>

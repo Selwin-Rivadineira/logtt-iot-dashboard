@@ -5,7 +5,6 @@ export default function KpiCards({
   permitidosCount = 0,
   denegadosCount = 0,
   areasCount = 0,
-  queryLatency = null,
   hasErrors = false,
 }) {
   return (
@@ -25,12 +24,6 @@ export default function KpiCards({
       <div className="kpi-card">
         <div className="kpi-number">{areasCount}</div>
         <div className="kpi-label">Áreas Monitoreadas</div>
-      </div>
-      <div className="kpi-card">
-        <div className="kpi-number">
-          {queryLatency !== null && !hasErrors ? `${queryLatency}ms` : '—'}
-        </div>
-        <div className="kpi-label">Latencia del Servidor</div>
       </div>
     </div>
   );

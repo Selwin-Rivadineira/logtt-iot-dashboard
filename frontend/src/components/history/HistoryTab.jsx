@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import HistoryFilters from './HistoryFilters';
 import HistoryTable from './HistoryTable';
+import CardRegisterModal from '../cards/CardRegisterModal';
 
 export default function HistoryTab({
   historial = [],
   areas = [],
+  usuarios = [], // <-- Añadido aquí para evitar el error
+  permisos = [], // <-- Añadido aquí para evitar el error
   getAreaObj,
   loading = false,
   checked = false,
   errors = {},
+  onRefresh,
 }) {
   const [filtroTexto, setFiltroTexto] = useState('');
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
@@ -71,6 +76,7 @@ export default function HistoryTab({
         filtroEstado={filtroEstado}
         setFiltroEstado={setFiltroEstado}
         areas={areas}
+        onOpenCardModal={() => setIsCardModalOpen(true)}
       />
 
       <HistoryTable
@@ -80,6 +86,16 @@ export default function HistoryTab({
         loading={loading}
         checked={checked}
         errors={errors}
+      />
+
+      {/* Modal de Registro de Tarjetas */}
+      <CardRegisterModal
+        isOpen={isCardModalOpen}
+        onClose={() => setIsCardModalOpen(false)}
+        areas={areas}
+        usuarios={usuarios}
+        permisos={permisos}
+        onRefresh={onRefresh}
       />
     </div>
   );

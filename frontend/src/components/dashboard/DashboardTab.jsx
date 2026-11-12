@@ -36,7 +36,7 @@ export default function DashboardTab({
         permitidosCount={permitidosCount}
         denegadosCount={denegadosCount}
         areasCount={areas.length}
-        queryLatency={queryLatency}
+        //queryLatency={queryLatency}
         hasErrors={hasErrors}
       />
 

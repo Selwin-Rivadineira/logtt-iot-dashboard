@@ -23,6 +23,7 @@ export default function CardRegisterModal({
   const [uid, setUid] = useState(initialUid);
   const [zonasIds, setZonasIds] = useState([]);
   const [nombreUsuario, setNombreUsuario] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const [esLlaveMaestra, setEsLlaveMaestra] = useState(false);
   const [estaActiva, setEstaActiva] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -319,24 +320,83 @@ export default function CardRegisterModal({
             </div>
 
             {/* Campo 3: Nombre de Usuario */}
-            <div className="form-group">
+            <div className="form-group" style={{ position: 'relative' }}>
               <label>Nombre de Usuario:</label>
               <input
                 type="text"
-                list="usuarios-list"
                 placeholder="Ej. Lukas Quiroga o nuevo titular"
                 value={nombreUsuario}
-                onChange={(e) => setNombreUsuario(e.target.value)}
+                autoComplete="off"
+                onChange={(e) => {
+                  setNombreUsuario(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
                 required
+                style={{ width: '100%', boxSizing: 'border-box', position: 'relative', zIndex: 1 }}
               />
-              <datalist id="usuarios-list">
-                {usuarios.map((u) => (
-                  <option key={u.id} value={u.nombre_completo} />
-                ))}
-              </datalist>
-              <span className="field-hint">
+              
+              {/* Texto de ayuda ubicado debajo */}
+              <span className="field-hint" style={{ display: 'block', marginTop: '8px', position: 'relative', zIndex: 0 }}>
                 Titular responsable de la credencial (la autorización depende de las zonas seleccionadas arriba).
               </span>
+
+              {/* Menú desplegable pegado al input */}
+              {showDropdown && (
+                <ul style={{
+                  position: 'absolute',
+                  top: '68px', 
+                  left: 0,
+                  width: '100%',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  backgroundColor: '#ffffff',
+                  color: '#333333',
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  borderRadius: '0 0 4px 4px',
+                  border: '1px solid #cccccc',
+                  borderTop: 'none',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  zIndex: 1000
+                }}>
+                  {usuarios
+                    .filter((u) => u.nombre_completo.toLowerCase().includes(nombreUsuario.toLowerCase()))
+                    .map((u) => (
+                      <li
+                        key={u.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Evita que el input pierda el foco antes de tiempo
+                          setNombreUsuario(u.nombre_completo);
+                          setShowDropdown(false);
+                        }}
+                        style={{ 
+                          padding: '10px 15px', 
+                          cursor: 'pointer', 
+                          borderBottom: '1px solid #eeeeee',
+                          fontSize: '14px',
+                          margin: 0,
+                          backgroundColor: '#ffffff',
+                          transition: 'background-color 0.1s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#e2e8f0';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ffffff';
+                        }}
+                      >
+                        {u.nombre_completo}
+                      </li>
+                    ))}
+                  {usuarios.filter((u) => u.nombre_completo.toLowerCase().includes(nombreUsuario.toLowerCase())).length === 0 && (
+                    <li style={{ padding: '10px 15px', color: '#64748b', fontSize: '14px', fontStyle: 'italic', margin: 0, backgroundColor: '#ffffff' }}>
+                      Nuevo titular será creado...
+                    </li>
+                  )}
+                </ul>
+              )}
             </div>
 
             {/* Checkboxes de configuración */}

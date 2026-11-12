@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import UsersTable from './UsersTable';
 import CardsTable from './CardsTable';
 import PermissionsTable from './PermissionsTable';
+import UserRegisterModal from './UserRegisterModal';
 
 export default function UsersTab({
   usuarios = [],
@@ -12,6 +13,8 @@ export default function UsersTab({
   onOpenRegisterModal,
   onRefresh,
 }) {
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
   return (
     <div className="tab-usuarios-view">
       <div className="section-top-header">
@@ -24,7 +27,11 @@ export default function UsersTab({
         </div>
       </div>
 
-      <UsersTable usuarios={usuarios} />
+      <UsersTable 
+        usuarios={usuarios} 
+        onOpenUserModal={() => setIsUserModalOpen(true)} 
+      />
+      
       <CardsTable
         tarjetas={tarjetas}
         usuarios={usuarios}
@@ -34,7 +41,19 @@ export default function UsersTab({
         onOpenRegisterModal={onOpenRegisterModal}
         onRefresh={onRefresh}
       />
-      <PermissionsTable permisos={permisos} usuarios={usuarios} tarjetas={tarjetas} getAreaObj={getAreaObj} />
+      
+      <PermissionsTable 
+        permisos={permisos} 
+        usuarios={usuarios} 
+        tarjetas={tarjetas} 
+        getAreaObj={getAreaObj} 
+      />
+
+      <UserRegisterModal 
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }

@@ -318,3 +318,63 @@ export async function eliminarTarjeta(client, codigoRfid) {
   
   return true;
 }
+// NUEVA FUNCIÓN PARA EL CRUD DE USUARIOS
+export async function crearUsuario(client, datosUsuario) {
+  if (!client) throw new Error('Cliente de base de datos no disponible.');
+  
+  const { data, error } = await client
+    .from('usuario') // Asegúrate de que el nombre de la tabla en Supabase sea 'usuario'
+    .insert([datosUsuario])
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Error al crear usuario: ${error.message}`);
+  }
+  
+  return data;
+}
+
+// Actualizar usuario existente
+export async function actualizarUsuario(client, id, datos) {
+  if (!client || !id) throw new Error('Cliente o ID de usuario faltante.');
+  const { data, error } = await client
+    .from('usuario')
+    .update({
+      nombre_completo: datos.nombre_completo,
+      rol: datos.rol,
+      esta_activo: datos.esta_activo
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Error al actualizar usuario: ${error.message}`);
+  return data;
+}
+
+// Eliminar usuario
+export async function eliminarUsuario(client, id) {
+  if (!client || !id) throw new Error('Cliente o ID de usuario faltante.');
+  
+  // 1. Eliminar primero los permisos asociados en la tabla 'permiso' para evitar conflictos de llave foránea
+  await client
+    .from('permiso')
+    .delete()
+    .eq('usuario_id', id);
+
+  // 2. Ahora proceder a eliminar el usuario
+  const { error } = await client
+    .from('usuario')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar el usuario porque tiene registros históricos asociados.');
+    }
+    throw new Error(`Error al eliminar usuario: ${error.message}`);
+  }
+  
+  return true;
+}

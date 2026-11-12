@@ -4,8 +4,33 @@ export default function PermissionsTable({ permisos = [], usuarios = [], tarjeta
   const masters = tarjetas.filter((card) => card.es_llave_maestra === true);
   const userLabel = (id) => {
     const user = usuarios.find((item) => item.id === id);
-    return user ? `${user.nombre_completo} (#${user.id})` : `Usuario #${id}`;
+    return user ? user.nombre_completo : `Usuario #${id}`;
   };
+
+    // Filtrar permisos solo de usuarios que tienen tarjetas asignadas
+  const permisosConTarjeta = permisos.filter((p) => {
+    const tieneTarjeta = tarjetas.some((card) => card.usuario_id === p.usuario_id);
+    return tieneTarjeta;
+  });
+
+  // Agrupar permisos por usuario_id para mostrar todas sus áreas en una sola fila
+  const permisosAgrupadosMap = permisosConTarjeta.reduce((acc, p) => {
+    if (!acc[p.usuario_id]) {
+      acc[p.usuario_id] = {
+        usuario_id: p.usuario_id,
+        areas: [],
+        esta_activo: p.esta_activo
+      };
+    }
+    const area = getAreaObj(p.area_id);
+    const nombreArea = area?.descripcion || area?.nombre || `Área ${p.area_id}`;
+    if (!acc[p.usuario_id].areas.includes(nombreArea)) {
+      acc[p.usuario_id].areas.push(nombreArea);
+    }
+    return acc;
+  }, {});
+
+  const permisosAgrupados = Object.values(permisosAgrupadosMap);
 
   return (
     <div className="logs-container-box wireframe-target" data-figma-label="Table: Permisos_Areas">
@@ -15,15 +40,14 @@ export default function PermissionsTable({ permisos = [], usuarios = [], tarjeta
         <table className="logs-data-table">
           <thead><tr><th>Usuario</th><th>Tarjeta RFID</th><th>Área autorizada</th><th>Estado</th></tr></thead>
           <tbody>
-            {permisos.map((permission, index) => {
-              const cards = tarjetas.filter((card) => card.usuario_id === permission.usuario_id);
-              const area = getAreaObj(permission.area_id);
+            {permisosAgrupados.map((item, index) => {
+              const cards = tarjetas.filter((card) => card.usuario_id === item.usuario_id);
               return (
-                <tr key={`${permission.usuario_id}-${permission.area_id}-${index}`}>
-                  <td>{userLabel(permission.usuario_id)}</td>
+                <tr key={`permiso-usuario-${item.usuario_id}-${index}`}>
+                  <td>{userLabel(item.usuario_id)}</td>
                   <td>{cards.length ? cards.map((card) => card.codigo_rfid).join(', ') : 'Sin tarjeta asignada'}</td>
-                  <td>{area?.descripcion || area?.nombre || `Área ${permission.area_id}`}</td>
-                  <td><span className={permission.esta_activo ? 'text-status-ok' : 'text-status-deny'}>{permission.esta_activo ? 'Activo' : 'Inactivo'}</span></td>
+                  <td>{item.areas.join(', ')}</td>
+                  <td><span className={item.esta_activo ? 'text-status-ok' : 'text-status-deny'}>{item.esta_activo ? 'Activo' : 'Inactivo'}</span></td>
                 </tr>
               );
             })}

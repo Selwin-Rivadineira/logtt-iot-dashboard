@@ -318,3 +318,19 @@ export async function eliminarTarjeta(client, codigoRfid) {
   
   return true;
 }
+// NUEVA FUNCIÓN PARA EL CRUD DE USUARIOS
+export async function crearUsuario(client, datosUsuario) {
+  if (!client) throw new Error('Cliente de base de datos no disponible.');
+  
+  const { data, error } = await client
+    .from('usuario') // Asegúrate de que el nombre de la tabla en Supabase sea 'usuario'
+    .insert([datosUsuario])
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Error al crear usuario: ${error.message}`);
+  }
+  
+  return data;
+}

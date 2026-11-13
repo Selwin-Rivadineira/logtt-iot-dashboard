@@ -7,6 +7,7 @@ export default function HistoryTab({
   historial = [],
   areas = [],
   usuarios = [],
+  tarjetas = [], // <-- Recibido desde App.jsx
   permisos = [],
   getAreaObj,
   loading = false,
@@ -19,7 +20,6 @@ export default function HistoryTab({
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
-  // Estados para capturar el UID y el área de la fila específica donde se hizo clic en "+ Registrar"
   const [selectedUid, setSelectedUid] = useState('');
   const [selectedAreaId, setSelectedAreaId] = useState('');
 
@@ -82,6 +82,7 @@ export default function HistoryTab({
         areas={areas}
       />
 
+      {/* Se pasan tarjetas y usuarios a la tabla para que pueda mapear el nombre */}
       <HistoryTable
         historialFiltrado={historialFiltrado}
         totalHistorial={historial.length}
@@ -89,6 +90,8 @@ export default function HistoryTab({
         loading={loading}
         checked={checked}
         errors={errors}
+        tarjetas={tarjetas}
+        usuarios={usuarios}
         onOpenCardModal={(uid, areaId) => {
           setSelectedUid(uid);
           setSelectedAreaId(areaId);
@@ -96,7 +99,6 @@ export default function HistoryTab({
         }}
       />
 
-      {/* Modal de Registro de Tarjetas RFID con el UID y el área recuperados */}
       <CardRegisterModal
         isOpen={isCardModalOpen}
         onClose={() => setIsCardModalOpen(false)}

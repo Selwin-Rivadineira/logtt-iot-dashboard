@@ -6,8 +6,8 @@ import CardRegisterModal from '../cards/CardRegisterModal';
 export default function HistoryTab({
   historial = [],
   areas = [],
-  usuarios = [], // <-- Añadido aquí para evitar el error
-  permisos = [], // <-- Añadido aquí para evitar el error
+  usuarios = [],
+  permisos = [],
   getAreaObj,
   loading = false,
   checked = false,
@@ -18,6 +18,10 @@ export default function HistoryTab({
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+
+  // Estados para capturar el UID y el área de la fila específica donde se hizo clic en "+ Registrar"
+  const [selectedUid, setSelectedUid] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState('');
 
   // Exportar auditoría a CSV
   const exportarCSV = () => {
@@ -76,7 +80,6 @@ export default function HistoryTab({
         filtroEstado={filtroEstado}
         setFiltroEstado={setFiltroEstado}
         areas={areas}
-        onOpenCardModal={() => setIsCardModalOpen(true)}
       />
 
       <HistoryTable
@@ -86,12 +89,19 @@ export default function HistoryTab({
         loading={loading}
         checked={checked}
         errors={errors}
+        onOpenCardModal={(uid, areaId) => {
+          setSelectedUid(uid);
+          setSelectedAreaId(areaId);
+          setIsCardModalOpen(true);
+        }}
       />
 
-      {/* Modal de Registro de Tarjetas */}
+      {/* Modal de Registro de Tarjetas RFID con el UID y el área recuperados */}
       <CardRegisterModal
         isOpen={isCardModalOpen}
         onClose={() => setIsCardModalOpen(false)}
+        initialUid={selectedUid}
+        initialAreaId={selectedAreaId}
         areas={areas}
         usuarios={usuarios}
         permisos={permisos}

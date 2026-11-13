@@ -7,7 +7,9 @@ export default function HistoryTable({
   loading = false,
   checked = false,
   errors = {},
-  onOpenCardModal, // <-- Prop para disparar el modal con los datos de la fila
+  onOpenCardModal,
+  tarjetas = [],
+  usuarios = [],
 }) {
   return (
     <div className="logs-container-box wireframe-target" data-figma-label="Table: Historial_Acceso">
@@ -19,7 +21,7 @@ export default function HistoryTable({
               <th>Fecha y Hora</th>
               <th>Área / Puerta</th>
               <th>Código RFID Leído</th>
-              <th>Tarjeta Código</th>
+              <th>Tarjeta / Usuario Titular</th>
               <th>Resultado</th>
               <th>Motivo / Auditoría</th>
               <th>Offline</th>
@@ -27,8 +29,28 @@ export default function HistoryTable({
           </thead>
           <tbody>
             {historialFiltrado.map((row) => {
-              // Verificamos si la tarjeta está sin asignar o no registrada
-              const esNoRegistrada = !row.tarjeta_codigo || row.tarjeta_codigo === 'Sin Asignar';
+              const codigoLeido = String(row.codigo_rfid_leido || row.tarjeta_codigo || '').trim().toUpperCase();
+              
+              // Cruzamos la información de manera segura
+              let nombreTitular = null;
+
+              if (tarjetas.length > 0 && usuarios.length > 0) {
+                const tarjetaEncontrada = tarjetas.find((t) => {
+                  const tCodigo = String(t.codigo_rfid || t.uid || t.codigo || '').trim().toUpperCase();
+                  return tCodigo === codigoLeido || tCodigo === String(row.tarjeta_codigo || '').trim().toUpperCase();
+                });
+
+                if (tarjetaEncontrada && tarjetaEncontrada.usuario_id) {
+                  const usuarioEncontrado = usuarios.find(
+                    (u) => Number(u.id) === Number(tarjetaEncontrada.usuario_id)
+                  );
+                  if (usuarioEncontrado) {
+                    nombreTitular = usuarioEncontrado.nombre_completo;
+                  }
+                }
+              }
+
+              const tieneTarjetaRegistrada = Boolean(nombreTitular);
 
               return (
                 <tr key={row.id}>
@@ -45,8 +67,10 @@ export default function HistoryTable({
                     <code>{row.codigo_rfid_leido}</code>
                   </td>
                   <td>
-                    {row.tarjeta_codigo && row.tarjeta_codigo !== 'Sin Asignar' ? (
-                      <code>{row.tarjeta_codigo}</code>
+                    {tieneTarjetaRegistrada ? (
+                      <span style={{ fontWeight: '600', color: '#0f172a' }}>
+                        {nombreTitular}
+                      </span>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ color: '#888' }}>Sin Asignar</span>

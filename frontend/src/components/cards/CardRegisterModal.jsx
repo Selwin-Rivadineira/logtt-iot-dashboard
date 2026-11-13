@@ -43,20 +43,20 @@ export default function CardRegisterModal({
         setEsLlaveMaestra(tarjetaAEditar.es_llave_maestra || false);
         setEstaActiva(tarjetaAEditar.esta_activa !== undefined ? tarjetaAEditar.esta_activa : true);
         
-        // Obtener permisos del usuario desde la tabla 'permiso'
-        const titularId = tarjetaAEditar.usuario_id;
-        const permisosUsuario = permisos
-          .filter((p) => p.usuario_id === titularId && p.esta_activo !== false)
+        // Obtener permisos específicos de ESTA tarjeta desde la tabla 'permiso'
+        const tarjetaRfid = tarjetaAEditar.codigo_rfid;
+        const permisosTarjeta = permisos
+          .filter((p) => p.codigo_rfid === tarjetaRfid && p.esta_activo !== false)
           .map((p) => p.area_id);
 
-        if (permisosUsuario.length > 0) {
-          setZonasIds(permisosUsuario);
+        if (permisosTarjeta.length > 0) {
+          setZonasIds(permisosTarjeta);
         } else if (tarjetaAEditar.area_id) {
           setZonasIds([tarjetaAEditar.area_id]);
         } else {
           setZonasIds([]);
         }
-      } else {
+      }else {
         // SI CREAMOS
         setUid(initialUid ? normalizarUID(initialUid) : '');
         const defaultArea = initialAreaId

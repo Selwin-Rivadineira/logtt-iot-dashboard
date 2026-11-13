@@ -7,6 +7,9 @@ export default function HistoryTable({
   loading = false,
   checked = false,
   errors = {},
+  onOpenCardModal,
+  tarjetas = [],
+  usuarios = [],
 }) {
   return (
     <div className="logs-container-box wireframe-target" data-figma-label="Table: Historial_Acceso">
@@ -18,47 +21,95 @@ export default function HistoryTable({
               <th>Fecha y Hora</th>
               <th>Área / Puerta</th>
               <th>Código RFID Leído</th>
-              <th>Tarjeta Código</th>
+              <th>Tarjeta / Usuario Titular</th>
               <th>Resultado</th>
               <th>Motivo / Auditoría</th>
               <th>Offline</th>
             </tr>
           </thead>
           <tbody>
-            {historialFiltrado.map((row) => (
-              <tr key={row.id}>
-                <td>#{row.id}</td>
-                <td>
-                  <strong>{new Date(row.fecha_hora).toLocaleString()}</strong>
-                </td>
-                <td>
-                  {getAreaObj(row.area_id)?.descripcion ||
-                    getAreaObj(row.area_id)?.nombre ||
-                    `Área ${row.area_id}`}
-                </td>
-                <td>
-                  <code>{row.codigo_rfid_leido}</code>
-                </td>
-                <td>
-                  {row.tarjeta_codigo ? (
-                    <code>{row.tarjeta_codigo}</code>
-                  ) : (
-                    <span style={{ color: '#888' }}>Sin Asignar</span>
-                  )}
-                </td>
-                <td>
-                  <span className={row.acceso_concedido ? 'text-status-ok' : 'text-status-deny'}>
-                    {row.acceso_concedido ? 'Permitido' : 'Denegado'}
-                  </span>
-                </td>
-                <td>
-                  <small>{row.motivo || 'Validación'}</small>
-                </td>
-                <td>
-                  <small>{row.sincronizado_offline ? 'Sí' : 'No'}</small>
-                </td>
-              </tr>
-            ))}
+            {historialFiltrado.map((row) => {
+              const codigoLeido = String(row.codigo_rfid_leido || row.tarjeta_codigo || '').trim().toUpperCase();
+              
+              // Cruzamos la información de manera segura
+              let nombreTitular = null;
+
+              if (tarjetas.length > 0 && usuarios.length > 0) {
+                const tarjetaEncontrada = tarjetas.find((t) => {
+                  const tCodigo = String(t.codigo_rfid || t.uid || t.codigo || '').trim().toUpperCase();
+                  return tCodigo === codigoLeido || tCodigo === String(row.tarjeta_codigo || '').trim().toUpperCase();
+                });
+
+                if (tarjetaEncontrada && tarjetaEncontrada.usuario_id) {
+                  const usuarioEncontrado = usuarios.find(
+                    (u) => Number(u.id) === Number(tarjetaEncontrada.usuario_id)
+                  );
+                  if (usuarioEncontrado) {
+                    nombreTitular = usuarioEncontrado.nombre_completo;
+                  }
+                }
+              }
+
+              const tieneTarjetaRegistrada = Boolean(nombreTitular);
+
+              return (
+                <tr key={row.id}>
+                  <td>#{row.id}</td>
+                  <td>
+                    <strong>{new Date(row.fecha_hora).toLocaleString()}</strong>
+                  </td>
+                  <td>
+                    {getAreaObj(row.area_id)?.descripcion ||
+                      getAreaObj(row.area_id)?.nombre ||
+                      `Área ${row.area_id}`}
+                  </td>
+                  <td>
+                    <code>{row.codigo_rfid_leido}</code>
+                  </td>
+                  <td>
+                    {tieneTarjetaRegistrada ? (
+                      <span style={{ fontWeight: '600', color: '#0f172a' }}>
+                        {nombreTitular}
+                      </span>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#888' }}>Sin Asignar</span>
+                        {onOpenCardModal && row.codigo_rfid_leido && (
+                          <button
+                            type="button"
+                            style={{
+                              backgroundColor: '#ff4b4b',
+                              color: 'white',
+                              border: 'none',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                            title="Registrar esta tarjeta UID"
+                            onClick={() => onOpenCardModal(row.codigo_rfid_leido, row.area_id)}
+                          >
+                            + Registrar
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span className={row.acceso_concedido ? 'text-status-ok' : 'text-status-deny'}>
+                      {row.acceso_concedido ? 'Permitido' : 'Denegado'}
+                    </span>
+                  </td>
+                  <td>
+                    <small>{row.motivo || 'Validación'}</small>
+                  </td>
+                  <td>
+                    <small>{row.sincronizado_offline ? 'Sí' : 'No'}</small>
+                  </td>
+                </tr>
+              );
+            })}
             {historialFiltrado.length === 0 && (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: 24, color: '#888' }}>

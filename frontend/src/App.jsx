@@ -118,15 +118,18 @@ export default function App() {
               )}
 
               {activeTab === 'historial' && (
-                <HistoryTab
-                  historial={historial}
-                  areas={areas}
-                  getAreaObj={getAreaObj}
-                  loading={loading}
-                  checked={checked}
-                  errors={errors}
-                />
-              )}
+  <HistoryTab
+    historial={historial}
+    areas={areas}
+    usuarios={usuarios}       // <-- Agregado para alimentar el historial
+    tarjetas={tarjetas}       // <-- Agregado para hacer el cruce de tarjetas
+    getAreaObj={getAreaObj}
+    loading={loading}
+    checked={checked}
+    errors={errors}
+    onRefresh={() => refresh()}
+  />
+)}
 
               {activeTab === 'usuarios' && (
                 <UsersTab

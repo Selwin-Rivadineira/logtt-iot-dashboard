@@ -6,8 +6,9 @@ import CardRegisterModal from '../cards/CardRegisterModal';
 export default function HistoryTab({
   historial = [],
   areas = [],
-  usuarios = [], // <-- Añadido aquí para evitar el error
-  permisos = [], // <-- Añadido aquí para evitar el error
+  usuarios = [],
+  tarjetas = [], // <-- Recibido desde App.jsx
+  permisos = [],
   getAreaObj,
   loading = false,
   checked = false,
@@ -18,6 +19,9 @@ export default function HistoryTab({
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [filtroArea, setFiltroArea] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+
+  const [selectedUid, setSelectedUid] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState('');
 
   // Exportar auditoría a CSV
   const exportarCSV = () => {
@@ -76,9 +80,9 @@ export default function HistoryTab({
         filtroEstado={filtroEstado}
         setFiltroEstado={setFiltroEstado}
         areas={areas}
-        onOpenCardModal={() => setIsCardModalOpen(true)}
       />
 
+      {/* Se pasan tarjetas y usuarios a la tabla para que pueda mapear el nombre */}
       <HistoryTable
         historialFiltrado={historialFiltrado}
         totalHistorial={historial.length}
@@ -86,12 +90,20 @@ export default function HistoryTab({
         loading={loading}
         checked={checked}
         errors={errors}
+        tarjetas={tarjetas}
+        usuarios={usuarios}
+        onOpenCardModal={(uid, areaId) => {
+          setSelectedUid(uid);
+          setSelectedAreaId(areaId);
+          setIsCardModalOpen(true);
+        }}
       />
 
-      {/* Modal de Registro de Tarjetas */}
       <CardRegisterModal
         isOpen={isCardModalOpen}
         onClose={() => setIsCardModalOpen(false)}
+        initialUid={selectedUid}
+        initialAreaId={selectedAreaId}
         areas={areas}
         usuarios={usuarios}
         permisos={permisos}

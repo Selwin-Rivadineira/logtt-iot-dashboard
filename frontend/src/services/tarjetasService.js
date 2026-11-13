@@ -244,7 +244,7 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
     esta_activa: Boolean(datosActualizados.estaActiva),
   };
 
-  // 1. Actualizar campos de la tabla 'tarjeta' (sin forzar area_id, ya que las zonas residen en 'permiso')
+  // 1. Actualizar campos de la tabla 'tarjeta'
   const { data, error } = await client
     .from('tarjeta')
     .update(payloadUpdate)
@@ -254,24 +254,26 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
 
   if (error) throw new Error(`Error al actualizar tarjeta: ${error.message}`);
 
-  // 2. Sincronizar permisos en la tabla 'permiso' para las zonas seleccionadas
+  // 2. Sincronizar permisos en la tabla 'permiso' vinculados específicamente a ESTA tarjeta
   if (datosActualizados.zonasIds && Array.isArray(datosActualizados.zonasIds)) {
     try {
       const zonasDeseadas = datosActualizados.zonasIds
         .map((id) => parseInt(id, 10))
         .filter((aid) => !isNaN(aid) && aid > 0);
 
+      // Consultar permisos actuales de ESTA tarjeta en específico
       const { data: existingPermisos } = await client
         .from('permiso')
         .select('area_id')
-        .eq('usuario_id', uId);
+        .eq('codigo_rfid', codigoRfid);
 
       const existingAreas = (existingPermisos || []).map((p) => p.area_id);
 
-      // Permisos a insertar (nuevas zonas autorizadas en la tabla permiso)
+      // Zonas nuevas a insertar para esta tarjeta
       const permisosParaInsertar = zonasDeseadas
         .filter((aid) => !existingAreas.includes(aid))
         .map((aid) => ({
+          codigo_rfid: codigoRfid,
           usuario_id: uId,
           area_id: aid,
           esta_activo: true,
@@ -281,25 +283,24 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
         await client.from('permiso').insert(permisosParaInsertar);
       }
 
-      // Permisos a remover (zonas desmarcadas en la tabla permiso)
+      // Zonas desmarcadas que debemos remover para esta tarjeta
       const areasParaRemover = existingAreas.filter((aid) => !zonasDeseadas.includes(aid));
       if (areasParaRemover.length > 0) {
         for (const aid of areasParaRemover) {
           await client
             .from('permiso')
             .delete()
-            .eq('usuario_id', uId)
+            .eq('codigo_rfid', codigoRfid)
             .eq('area_id', aid);
         }
       }
     } catch (errPermiso) {
-      console.warn('[LOGTT] Error sincronizando permisos en tabla permiso al actualizar:', errPermiso.message);
+      console.warn('[LOGTT] Error sincronizando permisos por tarjeta:', errPermiso.message);
     }
   }
 
   return data;
 }
-
 export async function eliminarTarjeta(client, codigoRfid) {
   if (!client || !codigoRfid) throw new Error('Cliente o código RFID faltante.');
   

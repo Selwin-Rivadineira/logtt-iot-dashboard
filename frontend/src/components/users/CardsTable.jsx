@@ -45,10 +45,10 @@ export default function CardsTable({
       const area = getAreaObj ? getAreaObj(t.area_id) : areas.find((a) => a.id === t.area_id);
       return area?.nombre || area?.descripcion || `Zona #${t.area_id}`;
     }
-    // Si no tiene area_id directo, verificar en permisos por usuario
-    const perms = permisos.filter((p) => p.usuario_id === t.usuario_id && p.esta_activo !== false);
+    // Verificar permisos específicos de ESTA tarjeta por su código RFID
+    const perms = permisos.filter((p) => p.codigo_rfid === t.codigo_rfid && p.esta_activo !== false);
     if (perms.length > 0) {
-      return perms  
+      return perms 
         .map((p) => {
           const a = getAreaObj ? getAreaObj(p.area_id) : areas.find((ar) => ar.id === p.area_id);
           return a?.nombre || `Zona ${p.area_id}`;

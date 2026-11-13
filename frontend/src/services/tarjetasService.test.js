@@ -157,9 +157,9 @@ test('registrarTarjeta asigna zona física correctamente y actualiza permisos', 
         return {
           select() {
             return {
-              eq(_campo, valor) {
+              eq(campo, valor) {
                 return Promise.resolve({
-                  data: permisosDB.filter((p) => p.usuario_id === valor),
+                  data: permisosDB.filter((p) => (p[campo] !== undefined ? p[campo] === valor : p.usuario_id === valor)),
                   error: null,
                 });
               },
@@ -255,7 +255,7 @@ test('buscarUsuarioPorNombre encuentra usuarios por coincidencia exacta, parcial
 
 test('actualizarTarjeta actualiza tarjeta y sincroniza permisos en tabla permiso', async () => {
   let updatePayloads = [];
-  let permisosDB = [{ usuario_id: 2, area_id: 3 }];
+  let permisosDB = [{ codigo_rfid: 'A1B2C3D4', usuario_id: 2, area_id: 3 }];
   let eliminados = [];
 
   const fakeClient = {
@@ -284,9 +284,9 @@ test('actualizarTarjeta actualiza tarjeta y sincroniza permisos en tabla permiso
         return {
           select() {
             return {
-              eq(_campo, valor) {
+              eq(campo, valor) {
                 return Promise.resolve({
-                  data: permisosDB.filter((p) => p.usuario_id === valor),
+                  data: permisosDB.filter((p) => (p[campo] !== undefined ? p[campo] === valor : p.usuario_id === valor)),
                   error: null,
                 });
               },
@@ -301,8 +301,8 @@ test('actualizarTarjeta actualiza tarjeta y sincroniza permisos en tabla permiso
               eq(_campo1, valor1) {
                 return {
                   async eq(_campo2, valor2) {
-                    eliminados.push({ usuario_id: valor1, area_id: valor2 });
-                    permisosDB = permisosDB.filter((p) => !(p.usuario_id === valor1 && p.area_id === valor2));
+                    eliminados.push({ codigo_rfid: valor1, area_id: valor2 });
+                    permisosDB = permisosDB.filter((p) => !(p.codigo_rfid === valor1 && p.area_id === valor2));
                     return { error: null };
                   },
                 };
@@ -324,8 +324,83 @@ test('actualizarTarjeta actualiza tarjeta y sincroniza permisos en tabla permiso
 
   assert.equal(resultado.codigo_rfid, 'A1B2C3D4');
   assert.equal(resultado.usuario_id, 2);
-  assert.equal('area_id' in updatePayloads[0], false); // No fuerza area_id en tarjeta
   assert.ok(permisosDB.some((p) => p.area_id === 1));
   assert.ok(permisosDB.some((p) => p.area_id === 2));
   assert.ok(eliminados.some((p) => p.area_id === 3));
+});
+
+test('registrarTarjeta asigna Norte, Sur, Este y Oeste vinculando codigo_rfid en permiso', async () => {
+  const tarjetasDB = [];
+  const permisosDB = [];
+
+  const fakeClient = {
+    from(tabla) {
+      if (tabla === 'tarjeta') {
+        return {
+          select() {
+            return {
+              eq(_campo, _valor) {
+                return {
+                  async maybeSingle() {
+                    return { data: null, error: null };
+                  },
+                };
+              },
+            };
+          },
+          insert(rows) {
+            return {
+              select() {
+                return {
+                  async single() {
+                    tarjetasDB.push(rows[0]);
+                    return { data: rows[0], error: null };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (tabla === 'permiso') {
+        return {
+          select() {
+            return {
+              eq(campo, valor) {
+                return Promise.resolve({
+                  data: permisosDB.filter((p) => p[campo] === valor),
+                  error: null,
+                });
+              },
+            };
+          },
+          async insert(rows) {
+            permisosDB.push(...rows);
+            return { data: rows, error: null };
+          },
+        };
+      }
+      throw new Error(`Tabla ${tabla} no soportada`);
+    },
+  };
+
+  // Registrar tarjeta con zonas 1 (Norte), 2 (Sur), 3 (Este), 4 (Oeste)
+  const tarjeta = await registrarTarjeta(fakeClient, {
+    codigoRfid: 'DEADBEEF',
+    usuarioId: 10,
+    zonasIds: [1, 2, 3, 4],
+  });
+
+  assert.equal(tarjeta.codigo_rfid, 'DEADBEEF');
+  assert.deepEqual(tarjeta.zonas, [1, 2, 3, 4]);
+
+  // Verificar que cada fila en permisosDB tiene codigo_rfid 'DEADBEEF', usuario_id 10, esta_activo true
+  assert.equal(permisosDB.length, 4);
+  for (const aid of [1, 2, 3, 4]) {
+    const perm = permisosDB.find((p) => p.area_id === aid);
+    assert.ok(perm, `Debe existir permiso para zona ${aid}`);
+    assert.equal(perm.codigo_rfid, 'DEADBEEF');
+    assert.equal(perm.usuario_id, 10);
+    assert.equal(perm.esta_activo, true);
+  }
 });

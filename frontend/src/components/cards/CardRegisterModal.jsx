@@ -12,6 +12,7 @@ export default function CardRegisterModal({
   isOpen,
   onClose,
   onSuccess,
+  onRefresh,
   initialUid = '',
   initialAreaId = '',
   usuarios = [],
@@ -54,7 +55,10 @@ export default function CardRegisterModal({
         } else if (tarjetaAEditar.area_id) {
           setZonasIds([tarjetaAEditar.area_id]);
         } else {
-          setZonasIds([]);
+          const permisosUsuario = permisos
+            .filter((p) => !p.codigo_rfid && p.usuario_id === tarjetaAEditar.usuario_id && p.esta_activo !== false)
+            .map((p) => p.area_id);
+          setZonasIds(permisosUsuario.length > 0 ? permisosUsuario : []);
         }
       }else {
         // SI CREAMOS
@@ -210,6 +214,7 @@ export default function CardRegisterModal({
       if (isEditing) {
         await actualizarTarjeta(client, validacion.normalizado, {
           usuarioId: resolvedUsuarioId,
+          areaId: primaryAreaId,
           zonasIds: finalZonas,
           esLlaveMaestra,
           estaActiva,
@@ -228,6 +233,7 @@ export default function CardRegisterModal({
       }
       setTimeout(() => {
         onSuccess?.();
+        onRefresh?.();
         onClose?.();
       }, 900);
     } catch (err) {

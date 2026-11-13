@@ -151,9 +151,9 @@ export async function registrarTarjeta(
     throw err;
   }
 
-  const primaryAreaId = zonasNormalizadas.length > 0 ? zonasNormalizadas[0] : null;
+  const primaryAreaId = (!esLlaveMaestra && zonasNormalizadas.length > 0) ? zonasNormalizadas[0] : null;
 
-  // 2. Insertar en la tabla 'tarjeta' (incluyendo area_id si está disponible)
+  // 2. Insertar en la tabla 'tarjeta' (incluyendo area_id si está disponible en el esquema)
   const payloadTarjeta = {
     codigo_rfid: uidFinal,
     usuario_id: parseInt(usuarioId, 10),
@@ -173,8 +173,8 @@ export async function registrarTarjeta(
     .single();
 
   if (errorInsert) {
-    // Si la columna area_id aún no ha sido agregada en Supabase, reintentar sin area_id
-    if (errorInsert.message && errorInsert.message.includes('area_id')) {
+    // Si la columna area_id aún no existe en la tabla tarjeta de Supabase, reintentar sin ella
+    if (errorInsert.code === '42703' || (errorInsert.message && errorInsert.message.includes('area_id'))) {
       delete payloadTarjeta.area_id;
       const { data: fallbackResult, error: fallbackError } = await client
         .from('tarjeta')
@@ -202,28 +202,46 @@ export async function registrarTarjeta(
     nuevaTarjeta = insertResult;
   }
 
-  // 3. Sincronizar permisos en la tabla 'permiso' para las zonas seleccionadas
+  // 3. Sincronizar permisos en la tabla 'permiso' para las zonas seleccionadas (Norte, Sur, Este, Oeste)
   if (zonasNormalizadas.length > 0) {
     try {
       const { data: existingPermisos } = await client
         .from('permiso')
         .select('area_id')
-        .eq('usuario_id', parseInt(usuarioId, 10));
+        .eq('codigo_rfid', uidFinal);
 
       const existingSet = new Set((existingPermisos || []).map((p) => p.area_id));
       const permisosParaInsertar = zonasNormalizadas
         .filter((aid) => !existingSet.has(aid))
         .map((aid) => ({
+          codigo_rfid: uidFinal,
           usuario_id: parseInt(usuarioId, 10),
           area_id: aid,
           esta_activo: true,
         }));
 
       if (permisosParaInsertar.length > 0) {
-        await client.from('permiso').insert(permisosParaInsertar);
+        const { error: errInsertPermiso } = await client
+          .from('permiso')
+          .insert(permisosParaInsertar);
+
+        if (errInsertPermiso) {
+          // Si el esquema no tuviera la columna codigo_rfid, reintentar sin ella
+          if (errInsertPermiso.code === '42703' || (errInsertPermiso.message && errInsertPermiso.message.includes('codigo_rfid'))) {
+            const fallbackPermisos = permisosParaInsertar.map((p) => ({ usuario_id: p.usuario_id, area_id: p.area_id, esta_activo: p.esta_activo }));
+            const { error: errFallback } = await client.from('permiso').insert(fallbackPermisos);
+            if (errFallback) {
+              console.warn('[LOGTT] Error en fallback de inserción de permisos:', errFallback.message);
+            }
+          } else {
+            console.error('[LOGTT] Error insertando permisos de la tarjeta:', errInsertPermiso);
+            throw new Error(`Error al guardar las zonas en la base de datos: ${errInsertPermiso.message}`);
+          }
+        }
       }
     } catch (errPermiso) {
-      console.warn('[LOGTT] No se pudo sincronizar permisos en tabla permiso:', errPermiso.message);
+      console.error('[LOGTT] Error sincronizando permisos en tabla permiso:', errPermiso.message);
+      throw errPermiso;
     }
   }
 
@@ -244,15 +262,42 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
     esta_activa: Boolean(datosActualizados.estaActiva),
   };
 
-  // 1. Actualizar campos de la tabla 'tarjeta'
-  const { data, error } = await client
+  const primaryAreaId = datosActualizados.areaId !== undefined
+    ? datosActualizados.areaId
+    : (Array.isArray(datosActualizados.zonasIds) && datosActualizados.zonasIds.length > 0 && !datosActualizados.esLlaveMaestra)
+    ? parseInt(datosActualizados.zonasIds[0], 10)
+    : null;
+
+  if (primaryAreaId !== undefined) {
+    payloadUpdate.area_id = primaryAreaId;
+  }
+
+  // 1. Actualizar campos de la tabla 'tarjeta' (con fallback si no existe area_id)
+  let data;
+  const { data: updateResult, error } = await client
     .from('tarjeta')
     .update(payloadUpdate)
     .eq('codigo_rfid', codigoRfid)
     .select()
     .single();
 
-  if (error) throw new Error(`Error al actualizar tarjeta: ${error.message}`);
+  if (error) {
+    if (error.code === '42703' || (error.message && error.message.includes('area_id'))) {
+      delete payloadUpdate.area_id;
+      const { data: fallbackResult, error: fallbackError } = await client
+        .from('tarjeta')
+        .update(payloadUpdate)
+        .eq('codigo_rfid', codigoRfid)
+        .select()
+        .single();
+      if (fallbackError) throw new Error(`Error al actualizar tarjeta: ${fallbackError.message}`);
+      data = fallbackResult;
+    } else {
+      throw new Error(`Error al actualizar tarjeta: ${error.message}`);
+    }
+  } else {
+    data = updateResult;
+  }
 
   // 2. Sincronizar permisos en la tabla 'permiso' vinculados específicamente a ESTA tarjeta
   if (datosActualizados.zonasIds && Array.isArray(datosActualizados.zonasIds)) {
@@ -280,7 +325,15 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
         }));
 
       if (permisosParaInsertar.length > 0) {
-        await client.from('permiso').insert(permisosParaInsertar);
+        const { error: errInsertPermiso } = await client.from('permiso').insert(permisosParaInsertar);
+        if (errInsertPermiso) {
+          if (errInsertPermiso.code === '42703' || (errInsertPermiso.message && errInsertPermiso.message.includes('codigo_rfid'))) {
+            const fallbackPermisos = permisosParaInsertar.map((p) => ({ usuario_id: p.usuario_id, area_id: p.area_id, esta_activo: p.esta_activo }));
+            await client.from('permiso').insert(fallbackPermisos);
+          } else {
+            throw errInsertPermiso;
+          }
+        }
       }
 
       // Zonas desmarcadas que debemos remover para esta tarjeta
@@ -295,7 +348,8 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
         }
       }
     } catch (errPermiso) {
-      console.warn('[LOGTT] Error sincronizando permisos por tarjeta:', errPermiso.message);
+      console.error('[LOGTT] Error sincronizando permisos por tarjeta:', errPermiso.message);
+      throw new Error(`Error al actualizar zonas: ${errPermiso.message}`);
     }
   }
 
@@ -304,6 +358,17 @@ export async function actualizarTarjeta(client, codigoRfid, datosActualizados) {
 export async function eliminarTarjeta(client, codigoRfid) {
   if (!client || !codigoRfid) throw new Error('Cliente o código RFID faltante.');
   
+  // 1. Limpiar primero permisos asociados a esta tarjeta en la tabla 'permiso'
+  try {
+    await client
+      .from('permiso')
+      .delete()
+      .eq('codigo_rfid', codigoRfid);
+  } catch (errPermiso) {
+    console.warn('[LOGTT] Error al eliminar permisos previos de la tarjeta:', errPermiso.message);
+  }
+
+  // 2. Eliminar la tarjeta
   const { error } = await client
     .from('tarjeta')
     .delete()

@@ -101,12 +101,17 @@ export default function HistoryTab({
 
       <CardRegisterModal
         isOpen={isCardModalOpen}
-        onClose={() => setIsCardModalOpen(false)}
+        onClose={() => {
+          setIsCardModalOpen(false);
+          setSelectedUid('');
+          setSelectedAreaId('');
+        }}
         initialUid={selectedUid}
         initialAreaId={selectedAreaId}
         areas={areas}
         usuarios={usuarios}
         permisos={permisos}
+        onSuccess={onRefresh}
         onRefresh={onRefresh}
       />
     </div>

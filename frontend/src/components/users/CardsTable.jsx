@@ -41,17 +41,28 @@ export default function CardsTable({
     if (t.es_llave_maestra) {
       return <span className="zone-tag-master">★ Todas las Zonas (Llave Maestra)</span>;
     }
-    if (t.area_id) {
-      const area = getAreaObj ? getAreaObj(t.area_id) : areas.find((a) => a.id === t.area_id);
-      return area?.nombre || area?.descripcion || `Zona #${t.area_id}`;
-    }
-    // Verificar permisos específicos de ESTA tarjeta por su código RFID
+    // 1. Priorizar permisos asignados específicamente a ESTA tarjeta por su código RFID
     const perms = permisos.filter((p) => p.codigo_rfid === t.codigo_rfid && p.esta_activo !== false);
     if (perms.length > 0) {
       return perms 
         .map((p) => {
           const a = getAreaObj ? getAreaObj(p.area_id) : areas.find((ar) => ar.id === p.area_id);
-          return a?.nombre || `Zona ${p.area_id}`;
+          return a?.nombre || a?.descripcion || `Zona ${p.area_id}`;
+        })
+        .join(', ');
+    }
+    // 2. Si la tabla tarjeta tiene asignado area_id directo
+    if (t.area_id) {
+      const area = getAreaObj ? getAreaObj(t.area_id) : areas.find((a) => a.id === t.area_id);
+      return area?.nombre || area?.descripcion || `Zona #${t.area_id}`;
+    }
+    // 3. Fallback de compatibilidad: permisos asignados al titular por usuario_id
+    const permsUsuario = permisos.filter((p) => !p.codigo_rfid && p.usuario_id === t.usuario_id && p.esta_activo !== false);
+    if (permsUsuario.length > 0) {
+      return permsUsuario 
+        .map((p) => {
+          const a = getAreaObj ? getAreaObj(p.area_id) : areas.find((ar) => ar.id === p.area_id);
+          return a?.nombre || a?.descripcion || `Zona ${p.area_id}`;
         })
         .join(', ');
     }

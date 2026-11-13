@@ -7,25 +7,29 @@ export default function PermissionsTable({ permisos = [], usuarios = [], tarjeta
     return user ? user.nombre_completo : `Usuario #${id}`;
   };
 
-    // Filtrar permisos solo de usuarios que tienen tarjetas asignadas
+  // Filtrar permisos de usuarios o tarjetas existentes
   const permisosConTarjeta = permisos.filter((p) => {
-    const tieneTarjeta = tarjetas.some((card) => card.usuario_id === p.usuario_id);
-    return tieneTarjeta;
+    if (p.codigo_rfid) {
+      return tarjetas.some((card) => card.codigo_rfid === p.codigo_rfid);
+    }
+    return tarjetas.some((card) => card.usuario_id === p.usuario_id);
   });
 
-  // Agrupar permisos por usuario_id para mostrar todas sus áreas en una sola fila
+  // Agrupar permisos por tarjeta (o usuario si es legacy) para mostrar todas sus áreas
   const permisosAgrupadosMap = permisosConTarjeta.reduce((acc, p) => {
-    if (!acc[p.usuario_id]) {
-      acc[p.usuario_id] = {
+    const key = p.codigo_rfid ? `card-${p.codigo_rfid}` : `user-${p.usuario_id}`;
+    if (!acc[key]) {
+      acc[key] = {
         usuario_id: p.usuario_id,
+        codigo_rfid: p.codigo_rfid || null,
         areas: [],
-        esta_activo: p.esta_activo
+        esta_activo: p.esta_activo !== false,
       };
     }
-    const area = getAreaObj(p.area_id);
+    const area = getAreaObj ? getAreaObj(p.area_id) : null;
     const nombreArea = area?.descripcion || area?.nombre || `Área ${p.area_id}`;
-    if (!acc[p.usuario_id].areas.includes(nombreArea)) {
-      acc[p.usuario_id].areas.push(nombreArea);
+    if (!acc[key].areas.includes(nombreArea)) {
+      acc[key].areas.push(nombreArea);
     }
     return acc;
   }, {});
@@ -35,17 +39,19 @@ export default function PermissionsTable({ permisos = [], usuarios = [], tarjeta
   return (
     <div className="logs-container-box wireframe-target" data-figma-label="Table: Permisos_Areas">
       <h3 style={{ fontSize: 15, marginBottom: 12 }}>Permisos de Acceso</h3>
-      <p className="section-desc">Los permisos individuales provienen de la tabla permiso y se vinculan con las tarjetas por usuario. La llave maestra se identifica por la tarjeta; el controlador determina su acceso.</p>
+      <p className="section-desc">Los permisos individuales provienen de la tabla permiso y se vinculan con las tarjetas por zona física. La llave maestra se identifica por la tarjeta; el controlador determina su acceso.</p>
       <div style={{ overflowX: 'auto' }}>
         <table className="logs-data-table">
           <thead><tr><th>Usuario</th><th>Tarjeta RFID</th><th>Área autorizada</th><th>Estado</th></tr></thead>
           <tbody>
             {permisosAgrupados.map((item, index) => {
-              const cards = tarjetas.filter((card) => card.usuario_id === item.usuario_id);
+              const tarjetaLabel = item.codigo_rfid
+                ? item.codigo_rfid
+                : (tarjetas.filter((card) => card.usuario_id === item.usuario_id).map((c) => c.codigo_rfid).join(', ') || 'Sin tarjeta asignada');
               return (
-                <tr key={`permiso-usuario-${item.usuario_id}-${index}`}>
+                <tr key={`permiso-${item.codigo_rfid || item.usuario_id}-${index}`}>
                   <td>{userLabel(item.usuario_id)}</td>
-                  <td>{cards.length ? cards.map((card) => card.codigo_rfid).join(', ') : 'Sin tarjeta asignada'}</td>
+                  <td><code>{tarjetaLabel}</code></td>
                   <td>{item.areas.join(', ')}</td>
                   <td><span className={item.esta_activo ? 'text-status-ok' : 'text-status-deny'}>{item.esta_activo ? 'Activo' : 'Inactivo'}</span></td>
                 </tr>
